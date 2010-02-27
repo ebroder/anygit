@@ -1,6 +1,7 @@
 import os
+import sys
 
-ROOTDIR = os.path.dirname(__file__)
+ROOTDIR = os.path.abspath(os.path.dirname(__file__))
 
 # Django settings for anygit project.
 
@@ -82,3 +83,11 @@ INSTALLED_APPS = (
     'django.contrib.sessions',
     'django.contrib.sites',
 )
+
+sys.path[0:0] = ROOTDIR
+try:
+    from site import *
+except ImportError:
+    sys.stderr.write("Please create a 'site.py' file with your local settings.")
+    sys.exit(1)
+del sys.path[0]
