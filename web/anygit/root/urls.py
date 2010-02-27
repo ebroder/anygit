@@ -6,4 +6,5 @@ from django.conf.urls.defaults import *
 
 urlpatterns = patterns('',
     (r'^$', 'anygit.root.views.index'),
+    (r'^q/(?P<query>.*)$', 'anygit.root.views.query'),
 )

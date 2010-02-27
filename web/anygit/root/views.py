@@ -13,3 +13,9 @@ def respond(view):
 @respond
 def index(request):
     return {}
+
+@respond
+def query(request, query):
+    result = {}
+    
+    return 
