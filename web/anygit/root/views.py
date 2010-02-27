@@ -1,5 +1,7 @@
 from django import shortcuts
 from django import template
+from anygit import data
+import anygit.data.models
 
 def respond(view):
     def newview(request, *args, **kwargs):
@@ -17,5 +19,5 @@ def index(request):
 @respond
 def query(request, query):
     result = {}
-    
-    return 
+    objects = data.models.Object.find_all(prefix=query)
+    return {'objects' : objects}

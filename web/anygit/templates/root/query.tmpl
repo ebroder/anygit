@@ -1,0 +1,11 @@
+{% extends "layouts/application.tmpl" %}
+
+{% block content %}
+
+<ul>
+{% for object in objects %}
+<li> {{ object.sha1 }} </li>
+{% endfor %}
+</ul>
+
+{% endblock %}
