@@ -7,7 +7,7 @@ class Repository(object):
         self.base_url = base_url
         self.identifier = identifier
 
-class Object(object):
+class GitObject(object):
     def __init__(self, sha1):
         self.sha1 = sha1
 
