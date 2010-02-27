@@ -11,17 +11,17 @@ class GitObject(object):
     def __init__(self, sha1):
         self.sha1 = sha1
 
-class Blog(Object):
+class Blog(GitObject):
     @property
     def commits(self):
         pass
 
-class Tree(Object):
+class Tree(GitObject):
     @property
     def commits(self):
         pass
 
-class Commit(Object):
+class Commit(GitObject):
     @property
     def repositories(self):
         pass
