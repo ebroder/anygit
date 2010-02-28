@@ -4,13 +4,23 @@ The data models
 import logging
 import re
 from django.conf import settings
-domain = settings.CON.get_domain('objects')
 
 def canon_val(val):
     """Canonicalize a value to a list"""
     if not isinstance(val, list):
         val = [val]
     return val
+
+def classify(string):
+    """Convert a class name to the corresponding class"""
+    mapping = {'Repository' : Repository,
+               'Blob' : Blob,
+               'Tree' : Tree,
+               'Commit' : Commit}
+    try:
+        mapping[string]
+    except KeyError:
+        raise ValueError('No matching class found for %s' % string)
 
 def escape(value):
     """Escape a value for use in a query."""
@@ -33,14 +43,8 @@ class Error(Exception):
 class ValidationError(Error):
     pass
 
-class Repository(object):
-    def __init__(self, base_url, identifier):
-        self.base_url = base_url
-        self.identifier = identifier
-
-class GitObject(object):
-    _required_attributes = ['sha1']
-    sha1 = attribute('sha1')
+class SimpleDbModel(object):
+    _pk_name = 'id'
 
     def __init__(self, boto_object=None, **kwargs):
         self.boto_object = boto_object
@@ -49,17 +53,19 @@ class GitObject(object):
         for key, value in kwargs.iteritems():
             self._attributes[key] = canon_val(value)
 
+    @property
+    def pk(self):
+        assert(len(self._attributes[self._pk_name]) == 1)
+        return self._attributes[self._pk_name][0]
+
+    @pk.setter
+    def pk(self, value):
+        self._attributes[self._pk_name] = value
+
     @classmethod
-    def lookup_by_sha1(cls, sha1, partial=False):
-        safe_sha1 = escape(sha1)
-        if partial:
-            result = domain.select('select * from objects where sha1'
-                                   ' LIKE "%s%%"' %
-                                   safe_sha1)
-        else:
-            result = domain.select('select * from objects where sha1="%s"' %
-                                   safe_sha1)
-        return GitObject.result2objects(result)
+    def get(cls, pk):
+        """Get an item with the given primary key"""
+        return cls.domain.get_item(pk)
 
     @classmethod
     def result2objects(cls, result):
@@ -69,30 +75,20 @@ class GitObject(object):
                 logging.error('Invalid object %s (no __type__ attribute)' %
                               object)
                 continue
-            t = object['__type__']
-            if t == 'Blob':
-                c = Blob
-            elif t == 'Tree':
-                c = Tree
-            elif t == 'Commit':
-                c = Commit
-            else:
-                raise ValueError('Invalid __type__ for %s' % object)
-            instance = c(boto_object=object)
+            klass = classify(object['__type__'])
+            instance = klass(boto_object=object)
             objects.append(instance)
         return objects
 
     def validate(self):
-        if not self.sha1:
-            raise ValidationError('Must provide a sha1')
         for attr in self._required_attributes:
-            if not self._attributes[attr]:
+            if attr not in self._attributes or not self._attributes[attr]:
                 raise ValidationError('Must provide a value for %s' % attr)
 
     def save(self):
         self.validate()
         if self.boto_object is None:
-            self.boto_object = domain.new_item(self.sha1)
+            self.boto_object = self.domain.new_item(self.pk)
         for attr, value in self._attributes.iteritems():
             self.boto_object[attr] = value
         return self.boto_object.save()
@@ -109,38 +105,42 @@ class GitObject(object):
     def __repr__(self):
         return str(self)
 
+
+class Repository(SimpleDbModel):
+    domain = settings.CON.get_domain('repositories')
+    _required_attributes = ['name', 'url']
+    _pk_name = 'name'
+    name = attribute('name')
+    url = attribute('url')
+
+class GitObject(SimpleDbModel):
+    domain = settings.CON.get_domain('objects')
+    _required_attributes = ['sha1']
+    _pk_name = 'sha1'
+    sha1 = attribute('sha1')
+
+    @classmethod
+    def lookup_by_sha1(cls, sha1, partial=False):
+        safe_sha1 = escape(sha1)
+        if partial:
+            result = self.domain.select('select * from objects where sha1'
+                                   ' LIKE "%s%%"' %
+                                   safe_sha1)
+        else:
+            result = self.domain.select('select * from objects where '
+                                        ' sha1="%s"' %
+                                        safe_sha1)
+        return cls.result2objects(result)
+
+
 class Blob(GitObject):
     _required_attributes = ['sha1', 'commits']
     commits = attribute('commits')
-
-    @property
-    def commits(self):
-        return self._attributes['commits']
-
-    @commits.setter
-    def commits(self, value):
-        self._attributes['commits'] = value
 
 class Tree(GitObject):
     _required_attributes = ['sha1', 'commits']
     commits = attribute('commits')
 
-    @property
-    def commits(self):
-        return self._attributes['commits']
-
-    @commits.setter
-    def commits(self, value):
-        self._attributes['commits'] = value
-
 class Commit(GitObject):
     _required_attributes = ['sha1', 'repositories']
     repositories = attribute('repositories')
-
-    @property
-    def repositories(self):
-        return self._attributes['repositories']
-
-    @repositories.setter
-    def repositories(self, value):
-        self._attributes['repositories'] = value
