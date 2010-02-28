@@ -1,4 +1,4 @@
-"""
+ppp"""
 The data models
 """
 import logging
@@ -65,20 +65,21 @@ class SimpleDbModel(object):
     @classmethod
     def get(cls, pk):
         """Get an item with the given primary key"""
-        return cls.domain.get_item(pk)
+        result = cls.domain.get_item(pk)
+        if result:
+            return self.result2object(result)
+        else:
+            return None
 
     @classmethod
     def result2objects(cls, result):
-        objects = []
-        for object in result:
-            if '__type__' not in object:
-                logging.error('Invalid object %s (no __type__ attribute)' %
-                              object)
-                continue
-            klass = classify(object['__type__'])
-            instance = klass(boto_object=object)
-            objects.append(instance)
-        return objects
+        return [self.result2object(object) for object in result]
+
+    @classmethod
+    def result2object(cls, result):
+        klass = classify(result['__type__'])
+        instance = klass(boto_object=result)
+        return instance
 
     def validate(self):
         for attr in self._required_attributes:
