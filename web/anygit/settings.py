@@ -91,3 +91,6 @@ except ImportError:
     sys.stderr.write("Please create a 'site.py' file with your local settings.")
     sys.exit(1)
 del sys.path[0]
+
+import boto
+CON = boto.connect_sdb()
