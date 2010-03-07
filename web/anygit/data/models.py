@@ -18,7 +18,7 @@ def classify(string):
                'Tree' : Tree,
                'Commit' : Commit}
     try:
-        mapping[string]
+        return mapping[string]
     except KeyError:
         raise ValueError('No matching class found for %s' % string)
 
@@ -49,6 +49,8 @@ class SimpleDbModel(object):
     def __init__(self, boto_object=None, **kwargs):
         self.boto_object = boto_object
         self._attributes = {}
+        if boto_object:
+            self._attributes.update(boto_object)
         self._attributes['__type__'] = type(self).__name__
         for key, value in kwargs.iteritems():
             self._attributes[key] = canon_val(value)
@@ -73,13 +75,26 @@ class SimpleDbModel(object):
 
     @classmethod
     def result2objects(cls, result):
-        return [self.result2object(object) for object in result]
+        objects = []
+        for object_data in result:
+            try:
+                object = cls.result2object(object_data)
+            except (TypeError, KeyError):
+                logging.exception('Could not convert object to result')
+            else:
+                objects.append(object)
+        return objects
 
     @classmethod
     def result2object(cls, result):
         klass = classify(result['__type__'])
         instance = klass(boto_object=result)
         return instance
+
+    @classmethod
+    def all(cls):
+        result = cls.domain.select('select * from %s' % cls.domain.name)
+        return cls.result2objects(result)
 
     def validate(self):
         for attr in self._required_attributes:
@@ -94,18 +109,20 @@ class SimpleDbModel(object):
             self.boto_object[attr] = value
         return self.boto_object.save()
 
+    def delete(self):
+        self.boto_object.delete()
+
     def __str__(self):
         attrs = ['%s=%s' % (k, v) for k, v in self._attributes.iteritems()
                  if k != '__type__']
         name = type(self).__name__
         if attrs:
-            return '%s: %s' % (name, ', '.join(attrs))
+            return '<%s: %s>' % (name, ', '.join(attrs))
         else:
-            return '%s (empty)' % name
+            return '<%s (empty)>' % name
 
     def __repr__(self):
         return str(self)
-
 
 class Repository(SimpleDbModel):
     domain = settings.CON.get_domain('repositories')
@@ -132,7 +149,6 @@ class GitObject(SimpleDbModel):
                                         ' sha1="%s"' %
                                         safe_sha1)
         return cls.result2objects(result)
-
 
 class Blob(GitObject):
     _required_attributes = ['sha1', 'commits']
