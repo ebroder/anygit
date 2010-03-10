@@ -141,11 +141,11 @@ class GitObject(SimpleDbModel):
     def lookup_by_sha1(cls, sha1, partial=False):
         safe_sha1 = escape(sha1)
         if partial:
-            result = self.domain.select('select * from objects where sha1'
+            result = cls.domain.select('select * from objects where sha1'
                                    ' LIKE "%s%%"' %
                                    safe_sha1)
         else:
-            result = self.domain.select('select * from objects where '
+            result = cls.domain.select('select * from objects where '
                                         ' sha1="%s"' %
                                         safe_sha1)
         return cls.result2objects(result)
