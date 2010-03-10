@@ -5,6 +5,8 @@ import logging
 import re
 from django.conf import settings
 
+partial_sha1_re = re.compile('^[a-fA-F0-9]*$')
+
 def canon_val(val):
     """Canonicalize a value to a list"""
     if not isinstance(val, list):
@@ -25,14 +27,17 @@ def classify(string):
 def escape(value):
     """Escape a value for use in a query."""
     # TODO: make this escape rather than vomit
-    if not re.search('^[a-eA-E0-9]$', value):
+    if not partial_sha1_re.search(value):
         raise ValidationError('Invalid value')
     return value
 
-def attribute(name):
+def attribute(name, singleton=False):
     """Make 'name' into an accessible attribute"""
     def getter(self):
-        return self._attributes[name]
+        value = self._attributes[name]
+        if singleton:
+            value = value[0]
+        return value
     def setter(self, value):
         self._attributes[name] = canon_val(value)
     return property(getter, setter)
@@ -43,17 +48,26 @@ class Error(Exception):
 class ValidationError(Error):
     pass
 
+class NoSuchObject(Error):
+    pass
+
 class SimpleDbModel(object):
     _pk_name = 'id'
+    cache = {}
 
     def __init__(self, boto_object=None, **kwargs):
         self.boto_object = boto_object
         self._attributes = {}
         if boto_object:
-            self._attributes.update(boto_object)
+            for key, value in boto_object.iteritems():
+                self._attributes[key] = canon_val(value)
         self._attributes['__type__'] = type(self).__name__
         for key, value in kwargs.iteritems():
             self._attributes[key] = canon_val(value)
+
+    @property
+    def type(self):
+        return type(self).__name__.lower()
 
     @property
     def pk(self):
@@ -65,13 +79,21 @@ class SimpleDbModel(object):
         self._attributes[self._pk_name] = value
 
     @classmethod
-    def get(cls, pk):
+    def get(cls, pk, silent=False):
         """Get an item with the given primary key"""
+        if pk in cls.cache:
+            return cls.cache[pk]
         result = cls.domain.get_item(pk)
         if result:
-            return self.result2object(result)
+            result = cls.result2object(result)
+            cls.cache[pk] = result
+            return result
         else:
-            return None
+            if silent:
+                return None
+            else:
+                raise NoSuchObject('No %s with primary key %s found' %
+                                   (cls.__name__, pk))
 
     @classmethod
     def result2objects(cls, result):
@@ -125,17 +147,19 @@ class SimpleDbModel(object):
         return str(self)
 
 class Repository(SimpleDbModel):
+    cache = {}
     domain = settings.CON.get_domain('repositories')
     _required_attributes = ['name', 'url']
     _pk_name = 'name'
-    name = attribute('name')
-    url = attribute('url')
+    name = attribute('name', singleton=True)
+    url = attribute('url', singleton=True)
 
 class GitObject(SimpleDbModel):
+    cache = {}
     domain = settings.CON.get_domain('objects')
     _required_attributes = ['sha1']
     _pk_name = 'sha1'
-    sha1 = attribute('sha1')
+    sha1 = attribute('sha1', singleton=True)
 
     @classmethod
     def lookup_by_sha1(cls, sha1, partial=False):
@@ -152,12 +176,23 @@ class GitObject(SimpleDbModel):
 
 class Blob(GitObject):
     _required_attributes = ['sha1', 'commits']
-    commits = attribute('commits')
+    commits = attribute('commits', singleton=False)
+
+    @property
+    def repositories_friendly(self):
+        commit_objects = [Commit.get(commit) for commit in self.commits]
+        repo_names = sum([object.repositories_friendly
+                          for object in commit_objects], [])
+        return repo_names
 
 class Tree(GitObject):
     _required_attributes = ['sha1', 'commits']
-    commits = attribute('commits')
+    commits = attribute('commits', singleton=False)
 
 class Commit(GitObject):
     _required_attributes = ['sha1', 'repositories']
-    repositories = attribute('repositories')
+    repositories = attribute('repositories', singleton=False)
+
+    @property
+    def repositories_friendly(self):
+        return [Repository.get(repo).url for repo in self.repositories]

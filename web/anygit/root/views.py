@@ -19,5 +19,5 @@ def index(request):
 @respond
 def query(request, query):
     result = {}
-    objects = data.models.Object.find_all(prefix=query)
+    objects = data.models.GitObject.lookup_by_sha1(sha1=query, partial=True)
     return {'objects' : objects}
