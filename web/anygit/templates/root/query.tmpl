@@ -12,7 +12,7 @@
  </li>
 {% else %}
 {% ifequal object.type 'blob' %}
-<li> Blob {{ object.sha1 }}: comes from {{ object.repositories_friendly|join:', '}}
+<li> Blob {{ object.sha1 }}: comes from {{ object.commits|join:', ' }} (Repositories: {{ object.repositories_friendly|join:', '}})
 
  </li> 
 {% endifequal %}

@@ -183,7 +183,7 @@ class Blob(GitObject):
         commit_objects = [Commit.get(commit) for commit in self.commits]
         repo_names = sum([object.repositories_friendly
                           for object in commit_objects], [])
-        return repo_names
+        return list(set(repo_names))
 
 class Tree(GitObject):
     _required_attributes = ['sha1', 'commits']
@@ -196,3 +196,4 @@ class Commit(GitObject):
     @property
     def repositories_friendly(self):
         return [Repository.get(repo).url for repo in self.repositories]
+

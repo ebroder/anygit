@@ -1,14 +1,9 @@
-import git.blob
-import git.commit
-import git.repo
-import git.tag
-import git.tree
 import hashlib
 import os
 import re
 import subprocess
 
-THE_ONE_REPO_PATH = '/home/greg/repositories/anygit/the-one-repo'
+THE_ONE_REPO_PATH = os.path.join(os.path.dirname(__file__), '../../../the-one-repo.git')
 split_re = re.compile(r'[ \t]')
 hexdigest_re = re.compile(r'^[0-9a-fA-F]{40}$')
 
@@ -21,6 +16,12 @@ def classify(type):
 
 def sha1(string):
     return hashlib.sha1(string).hexdigest()
+
+def normalize_name(name):
+    if hexdigest_re.search(name):
+        return name
+    else:
+        return sha1(name)
 
 class Error(Exception):
     pass
@@ -52,22 +53,16 @@ class PhysicalRepo(object):
 
     def add_remote(self, url, localname=None):
         if localname is None:
-            localname = sha1(url)
+            localname = normalize_name(url)
         self.run('remote', 'add', localname, url)
         return localname
 
-    def normalize_name(self, name):
-        if hexdigest_re.search(name):
-            return name
-        else:
-            return sha1(name)
-
     def fetch(self, remote):
-        remote = self.normalize_name(remote)
+        remote = normalize_name(remote)
         return self.run('fetch', remote)
 
     def list_branches(self, remote):
-        remote = self.normalize_name(remote)
+        remote = normalize_name(remote)
         raw_result = self.run('for-each-ref', 'refs/remotes/%s/*' % remote,
                               split=True)
         # A result line looks like
@@ -77,7 +72,7 @@ class PhysicalRepo(object):
         return branches
 
     def list_commits(self, remote, branch):
-        remote = self.normalize_name(remote)
+        remote = normalize_name(remote)
         raw_result = self.run('rev-list', 'refs/remotes/%s/%s' %
                               (remote, branch), split=True)
         return raw_result

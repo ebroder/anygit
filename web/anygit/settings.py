@@ -94,3 +94,6 @@ sys.path[0:0] = []
 
 import boto
 CON = boto.connect_sdb()
+
+import logging.config
+logging.config.fileConfig(os.path.join(ROOTDIR, '../../conf/logging.conf'))
