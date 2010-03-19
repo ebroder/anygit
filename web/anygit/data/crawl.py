@@ -6,7 +6,13 @@ logger = logging.getLogger('anygit.data.crawl')
 repo = physical_git.THE_ONE_REPO
 
 def add_repo(url):
-    repo.add_remote(url)
+    remote = repo.add_remote(url)
+    try:
+        repo_object = models.Repository.get(remote)
+    except models.NoSuchObject:
+        logger.info('Time to create new repository %s' % remote)
+        repo_object = models.Repository(name=remote, url=url)
+        repo_object.save()
 
 def fetch_repo(remote):
     remote = physical_git.normalize_name(remote)
@@ -14,12 +20,6 @@ def fetch_repo(remote):
 
 def index_repo(remote):
     remote = physical_git.normalize_name(remote)
-    try:
-        repo_object = models.Repository.get(remote)
-    except models.NoSuchObject:
-        logger.info('Time to create new repository %s' % remote)
-        repo_object = models.Repository(name=remote, url=url)
-        repo_object.save()
     for branch in repo.list_branches(remote):
         for commit in repo.list_commits(remote, branch):
             try:

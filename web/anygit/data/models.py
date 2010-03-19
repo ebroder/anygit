@@ -115,7 +115,7 @@ class SimpleDbModel(object):
 
     @classmethod
     def all(cls):
-        result = cls.domain.select('select * from %s' % cls.domain.name)
+        result = cls.domain.select('select * from %s limit 10' % cls.domain.name)
         return cls.result2objects(result)
 
     def validate(self):
@@ -166,11 +166,11 @@ class GitObject(SimpleDbModel):
         safe_sha1 = escape(sha1)
         if partial:
             result = cls.domain.select('select * from objects where sha1'
-                                   ' LIKE "%s%%"' %
+                                   ' LIKE "%s%%" limit 10' %
                                    safe_sha1)
         else:
             result = cls.domain.select('select * from objects where '
-                                        ' sha1="%s"' %
+                                        ' sha1="%s" limit 10' %
                                         safe_sha1)
         return cls.result2objects(result)
 
