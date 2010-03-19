@@ -7,13 +7,6 @@ THE_ONE_REPO_PATH = os.path.join(os.path.dirname(__file__), '../../../the-one-re
 split_re = re.compile(r'[ \t]')
 hexdigest_re = re.compile(r'^[0-9a-fA-F]{40}$')
 
-def classify(type):
-    mapping = {'blob' : git.blob.Blob,
-               'commit' : git.commit.Commit,
-               'tag' : git.tag.Tag,
-               'tree' : git.tree.Tree}
-    return mapping[type]
-
 def sha1(string):
     return hashlib.sha1(string).hexdigest()
 
