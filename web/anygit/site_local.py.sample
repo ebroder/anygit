@@ -1,0 +1,5 @@
+DATABASE_NAME = 'anygit'
+DATABASE_USER = 'root'
+DATABASE_PASSWORD = ''
+DATABASE_HOST = ''
+DATABASE_PORT = ''             # Set to empty string for default. Not used with sqlite3.

@@ -1,199 +1,120 @@
-"""
-The data models
-"""
-import logging
-import re
-from django.conf import settings
+import anygit.backends.mysql.models
+from anygit.backends import mysql
 
-partial_sha1_re = re.compile('^[a-fA-F0-9]*$')
+def deferred_attribute(attr):
+    def get(self):
+        return getattr(self._backend, attr)
 
-def canon_val(val):
-    """Canonicalize a value to a list"""
-    if not isinstance(val, list):
-        val = [val]
-    return val
+    def set(self, value):
+        return setattr(self._backend, attr, value)
 
-def classify(string):
-    """Convert a class name to the corresponding class"""
-    mapping = {'Repository' : Repository,
-               'Blob' : Blob,
-               'Tree' : Tree,
-               'Commit' : Commit}
-    try:
-        return mapping[string]
-    except KeyError:
-        raise ValueError('No matching class found for %s' % string)
+    return property(get, set)
 
-def escape(value):
-    """Escape a value for use in a query."""
-    # TODO: make this escape rather than vomit
-    if not partial_sha1_re.search(value):
-        raise ValidationError('Invalid value')
-    return value
+def backend_class(klass):
+    lookup = {Repository : mysql.models.Repository,
+              Blob : mysql.models.Blob,
+              Tree : mysql.models.Tree,
+              Commit : mysql.models.Commit}
+    return lookup[klass]
 
-def attribute(name, singleton=False):
-    """Make 'name' into an accessible attribute"""
-    def getter(self):
-        value = self._attributes[name]
-        if singleton:
-            value = value[0]
-        return value
-    def setter(self, value):
-        self._attributes[name] = canon_val(value)
-    return property(getter, setter)
+class BackedObject(object):
+    def __init__(self, backend):
+        self._backend = backend
+        self._errors = {}
 
-class Error(Exception):
-    pass
+    def error(self, msg, attr=None):
+        error_list = self._errors.setdefault(attr, [])
+        error_list.append(msg)
 
-class ValidationError(Error):
-    pass
+    def clear_errors(self):
+        self._errors.clear()
 
-class NoSuchObject(Error):
-    pass
-
-class SimpleDbModel(object):
-    _pk_name = 'id'
-    cache = {}
-
-    def __init__(self, boto_object=None, **kwargs):
-        self.boto_object = boto_object
-        self._attributes = {}
-        if boto_object:
-            for key, value in boto_object.iteritems():
-                self._attributes[key] = canon_val(value)
-        self._attributes['__type__'] = type(self).__name__
-        for key, value in kwargs.iteritems():
-            self._attributes[key] = canon_val(value)
-
-    @property
-    def type(self):
-        return type(self).__name__.lower()
-
-    @property
-    def pk(self):
-        assert(len(self._attributes[self._pk_name]) == 1)
-        return self._attributes[self._pk_name][0]
-
-    @pk.setter
-    def pk(self, value):
-        self._attributes[self._pk_name] = value
+    def validate(self):
+        pass
 
     @classmethod
-    def get(cls, pk, silent=False):
-        """Get an item with the given primary key"""
-        if pk in cls.cache:
-            return cls.cache[pk]
-        result = cls.domain.get_item(pk)
-        if result:
-            result = cls.result2object(result)
-            cls.cache[pk] = result
-            return result
-        else:
-            if silent:
-                return None
-            else:
-                raise NoSuchObject('No %s with primary key %s found' %
-                                   (cls.__name__, pk))
+    def get(cls, **kwargs):
+        return backend_class(cls).get(**kwargs)
 
     @classmethod
-    def result2objects(cls, result):
-        objects = []
-        for object_data in result:
-            try:
-                object = cls.result2object(object_data)
-            except (TypeError, KeyError):
-                logging.exception('Could not convert object to result')
-            else:
-                objects.append(object)
-        return objects
-
-    @classmethod
-    def result2object(cls, result):
-        klass = classify(result['__type__'])
-        instance = klass(boto_object=result)
+    def new(cls, **kwargs):
+        backend = backend_class(cls)(**kwargs)
+        instance = cls(backend=backend)
         return instance
 
     @classmethod
-    def all(cls):
-        result = cls.domain.select('select * from %s limit 10' % cls.domain.name)
-        return cls.result2objects(result)
-
-    def validate(self):
-        for attr in self._required_attributes:
-            if attr not in self._attributes or not self._attributes[attr]:
-                raise ValidationError('Must provide a value for %s' % attr)
+    def create(cls, **kwargs):
+        instance = cls.new(**kwargs)
+        instance.save()
+        return instance
 
     def save(self):
         self.validate()
-        if self.boto_object is None:
-            self.boto_object = self.domain.new_item(self.pk)
-        for attr, value in self._attributes.iteritems():
-            self.boto_object[attr] = value
-        return self.boto_object.save()
-
-    def delete(self):
-        self.boto_object.delete()
-
-    def __str__(self):
-        attrs = ['%s=%s' % (k, v) for k, v in self._attributes.iteritems()
-                 if k != '__type__']
-        name = type(self).__name__
-        if attrs:
-            return '<%s: %s>' % (name, ', '.join(attrs))
+        if not self._errors:
+            self._backend.save()
+            return True
         else:
-            return '<%s (empty)>' % name
+            return False
 
     def __repr__(self):
         return str(self)
 
-class Repository(SimpleDbModel):
-    cache = {}
-    domain = settings.CON.get_domain('repositories')
-    _required_attributes = ['name', 'url']
-    _pk_name = 'name'
-    name = attribute('name', singleton=True)
-    url = attribute('url', singleton=True)
+class Repository(BackedObject):
+    def validate(self):
+        super(Repository, self).validate()
+        if not self.name:
+            self.error('name', 'Must provide a name')
+        if not self.url:
+            self.error('url', 'Must provide a url')
 
-class GitObject(SimpleDbModel):
-    cache = {}
-    domain = settings.CON.get_domain('objects')
-    _required_attributes = ['sha1']
-    _pk_name = 'sha1'
-    sha1 = attribute('sha1', singleton=True)
+    name = deferred_attribute('name')
+    url = deferred_attribute('url')
+
+    def __str__(self):
+        return 'Repo: %s' % self.url
+
+
+class GitObject(BackedObject):
+    sha1 = deferred_attribute('sha1')
+
+    def validate(self):
+        super(GitObject, self).validate()
+        if not self.sha1:
+            self.error('sha1', 'Must provide a sha1')
 
     @classmethod
     def lookup_by_sha1(cls, sha1, partial=False):
-        safe_sha1 = escape(sha1)
-        if partial:
-            result = cls.domain.select('select * from objects where sha1'
-                                   ' LIKE "%s%%" limit 10' %
-                                   safe_sha1)
-        else:
-            result = cls.domain.select('select * from objects where '
-                                        ' sha1="%s" limit 10' %
-                                        safe_sha1)
-        return cls.result2objects(result)
+        return mysql.models.GitObject.lookup_by_sha1(sha1, partial=partial)
+
 
 class Blob(GitObject):
-    _required_attributes = ['sha1', 'commits']
-    commits = attribute('commits', singleton=False)
+    commit_names = deferred_attribute('commit_names')
+    commits = deferred_attribute('commits')
 
-    @property
-    def repositories_friendly(self):
-        commit_objects = [Commit.get(commit) for commit in self.commits]
-        repo_names = sum([object.repositories_friendly
-                          for object in commit_objects], [])
-        return list(set(repo_names))
+    def add_commit(self, commit):
+        return self._backend.add_commit(commit)
+
+    def __str__(self):
+        return 'Blob: %s' % self.sha1
+
 
 class Tree(GitObject):
-    _required_attributes = ['sha1', 'commits']
-    commits = attribute('commits', singleton=False)
+    commit_names = deferred_attribute('commit_names')
+    commits = deferred_attribute('commits')
+
+    def add_commit(self, commit):
+        return self._backend.add_commit(commit)
+
+    def __str__(self):
+        return 'Tree: %s' % self.sha1
+
 
 class Commit(GitObject):
-    _required_attributes = ['sha1', 'repositories']
-    repositories = attribute('repositories', singleton=False)
+    repository_names = deferred_attribute('repository_names')
+    repositories = deferred_attribute('repositories')
 
-    @property
-    def repositories_friendly(self):
-        return [Repository.get(repo).url for repo in self.repositories]
+    def add_repository(self, repo):
+        return self._backend.add_repository(repo)
 
+    def __str__(self):
+        return 'Commit: %s' % self.sha1

@@ -4,19 +4,7 @@
 
 <ul>
 {% for object in objects %}
-
-{# I hate django #}
-{% ifequal object.type 'commit' %}
-<li> Commit {{ object.sha1 }}: comes from {{ object.repositories_friendly|join:', '}}
-
- </li>
-{% else %}
-{% ifequal object.type 'blob' %}
-<li> Blob {{ object.sha1 }}: comes from {{ object.commits|join:', ' }} (Repositories: {{ object.repositories_friendly|join:', '}})
-
- </li> 
-{% endifequal %}
-{% endifequal %}
+<li> {{ object.sha1 }} </li>
 
 {% endfor %}
 </ul>

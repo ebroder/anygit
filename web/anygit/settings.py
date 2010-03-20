@@ -15,11 +15,6 @@ ADMINS = (
 MANAGERS = ADMINS
 
 DATABASE_ENGINE = 'mysql'
-DATABASE_NAME = ''
-DATABASE_USER = ''
-DATABASE_PASSWORD = ''
-DATABASE_HOST = ''
-DATABASE_PORT = ''             # Set to empty string for default. Not used with sqlite3.
 
 # Local time zone for this installation. Choices can be found here:
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
@@ -82,18 +77,15 @@ INSTALLED_APPS = (
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.sites',
+    'backends.mysql',
 )
 
-sys.path[0:0] = [ROOTDIR]
+sys.path[0:0] = [ROOTDIR, os.path.join(ROOTDIR, '..')]
 try:
-    from site import *
+    from site_local import *
 except ImportError:
     sys.stderr.write("Please create a 'site.py' file with your local settings.")
     sys.exit(1)
-sys.path[0:0] = []
-
-import boto
-CON = boto.connect_sdb()
 
 import logging.config
 logging.config.fileConfig(os.path.join(ROOTDIR, '../../conf/logging.conf'))

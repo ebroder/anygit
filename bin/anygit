@@ -28,10 +28,7 @@ def main():
         url = args[1]
         logger.debug('Starting to index: %s' % url)
         if opts.add:
-            try:
-                crawl.add_repo(url)
-            except physical_git.GitCallError:
-                logger.debug('Already had added %s' % url)
+            crawl.add_repo(url)
         if opts.fetch:
             crawl.fetch_repo(url)
         if opts.index:
