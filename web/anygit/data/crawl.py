@@ -26,24 +26,23 @@ def fetch_repo(remote):
     repo.fetch(remote=remote)
 
 def index_repo(remote):
-    remote = physical_git.normalize_name(remote)
+    remote_name = physical_git.normalize_name(remote)
+    remote = models.Repository.get(name=remote_name)
     for branch in repo.list_branches(remote):
         for commit in repo.list_commits(remote, branch):
             try:
                 commit_object = models.Commit.get(sha1=commit)
             except exceptions.DoesNotExist:
                 commit_object = models.Commit.create(sha1=commit)
-            else:
-                logger.info('Adding %s to the repositories containing %s' %
+            logger.info('Adding %s to the repositories containing %s' %
                             (remote, commit_object))
-                commit_object.add_repository(remote)
+            commit_object.add_repository(remote)
 
             for blob in repo.list_blobs(commit):
                 try:
                     blob_object = models.Blob.get(sha1=blob)
                 except exceptions.DoesNotExist:
                     blob_object = models.Blob.create(sha1=blob)
-                else:
-                    logger.info('Adding %s to the commits containing %s' %
+            logger.info('Adding %s to the commits containing %s' %
                                 (commit, blob_object))
-                    blob_object.add_commit(commit)
+            blob_object.add_commit(commit)

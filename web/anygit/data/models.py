@@ -48,6 +48,9 @@ class BackedObject(object):
         instance.save()
         return instance
 
+    def type(self):
+        return type(self).__name__
+
     def save(self):
         self.validate()
         if not self._errors:
@@ -76,6 +79,8 @@ class Repository(BackedObject):
 
 class GitObject(BackedObject):
     sha1 = deferred_attribute('sha1')
+    repository_names = deferred_attribute('repository_names')
+    repositories = deferred_attribute('repositories')
 
     def validate(self):
         super(GitObject, self).validate()
@@ -110,9 +115,6 @@ class Tree(GitObject):
 
 
 class Commit(GitObject):
-    repository_names = deferred_attribute('repository_names')
-    repositories = deferred_attribute('repositories')
-
     def add_repository(self, repo):
         return self._backend.add_repository(repo)
 

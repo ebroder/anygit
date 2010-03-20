@@ -27,9 +27,10 @@ def frontend_class(klass):
               Commit : data.models.Commit}
     return lookup[klass]
 
-def frontify(instance):
-    frontend = frontend_class(instance.__class__)(backend=instance)
-    return frontend
+def frontify(iterator):
+    def convert(instance):
+        return frontend_class(instance.__class__)(backend=instance)
+    return itertools.imap(convert, iterator)
 
 class CustomModel(models.Model):
     @classmethod
@@ -60,7 +61,7 @@ class GitObject(CustomModel):
             trees = Tree.objects.filter(sha1=sha1).iterator()
             commits = Commit.objects.filter(sha1=sha1).iterator()
         results = itertools.chain(blobs, trees, commits)
-        return itertools.imap(frontify, results)
+        return frontify(results)
 
     class Meta:
         abstract = True
@@ -71,11 +72,7 @@ class Blob(GitObject):
 
     @property
     def commits(self):
-        return self._commits.iterator()
-
-    @commits.setter
-    def commits(self, value):
-        raise NotImplemented
+        return frontify(self._commits.iterator())
 
     @property
     def commit_names(self):
@@ -84,9 +81,13 @@ class Blob(GitObject):
         return itertools.imap(get_name, self._commits.objects.iterator())
 
     def add_commit(self, sha1):
-        # TODO: catch the exception
-        commit = Commit.get(sha1=sha1)
+        if isinstance(sha1, str):
+            commit = Commit.get(sha1=sha1)
         self._commits.add(commit)
+
+    @property
+    def repositories(self):
+        return Repository.objects.filter(commit__blob__sha1__exact=self.sha1)
 
 
 class Tree(GitObject):
@@ -94,42 +95,38 @@ class Tree(GitObject):
 
     @property
     def commits(self):
-        return self._commits.objects.iterator()
-
-    @commits.setter
-    def commits(self, value):
-        raise NotImplemented
+        return frontify(self._commits.objects.iterator())
 
     @property
     def commit_names(self):
         def get_name(commit):
             return commit.name
-        return itertools.imap(get_name, self._commits.objects.iterator())
+        return itertools.imap(get_name, self._commits.objects.iterator()).iterator()
 
     def add_commit(self, sha1):
-        # TODO: catch the exception
-        commit = Commit.get(sha1=sha1)
+        if isinstance(sha1, str):
+            commit = Commit.get(sha1=sha1)
         self._commits.add(commit)
 
+    @property
+    def repositories(self):
+        return frontify(Repository.objects.
+                        filter(commit__trees__sha1__exact=self.sha1).iterator())
 
 class Commit(GitObject):
     _repositories = models.ManyToManyField(Repository)
 
     @property
     def repositories(self):
-        return self._repositories.objects.iterator()
-
-    @repositories.setter
-    def repositories(self, value):
-        raise NotImplemented
+        return frontify(self._repositories.iterator())
 
     @property
     def repository_names(self):
         def get_name(repositorie):
             return repository.name
-        return itertools.imap(get_name, self._repositories.objects.iterator())
+        return itertools.imap(get_name, self._repositories.iterator())
 
     def add_repository(self, remote):
-        # TODO: catch the exception
-        repository = Repository.get(name=remote)
+        if isinstance(remote, str):
+            repository = Repository.get(name=remote)
         self._repositories.add(repository)
