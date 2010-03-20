@@ -8,8 +8,9 @@ logger = logging.getLogger('anygit.data.crawl')
 repo = physical_git.THE_ONE_REPO
 
 def add_repo(url):
+    remote = physical_git.normalize_name(url)
     try:
-        remote = repo.add_remote(url)
+        repo.add_remote(remote)
     except physical_git.GitCallError:
         logger.debug('Already had added %s' % url)
 
@@ -43,6 +44,6 @@ def index_repo(remote):
                     blob_object = models.Blob.get(sha1=blob)
                 except exceptions.DoesNotExist:
                     blob_object = models.Blob.create(sha1=blob)
-            logger.info('Adding %s to the commits containing %s' %
+                logger.info('Adding %s to the commits containing %s' %
                                 (commit, blob_object))
-            blob_object.add_commit(commit)
+                blob_object.add_commit(commit)

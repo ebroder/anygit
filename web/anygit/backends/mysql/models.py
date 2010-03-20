@@ -32,6 +32,14 @@ def frontify(iterator):
         return frontend_class(instance.__class__)(backend=instance)
     return itertools.imap(convert, iterator)
 
+def uniquify(iterable):
+    seen = set()
+    for item in iterable:
+        if item in seen:
+            continue
+        seen.add(item)
+        yield item
+
 class CustomModel(models.Model):
     @classmethod
     def get(cls, **kwargs):
@@ -63,6 +71,10 @@ class GitObject(CustomModel):
         results = itertools.chain(blobs, trees, commits)
         return frontify(results)
 
+    @property
+    def name(self):
+        return self.sha1
+
     class Meta:
         abstract = True
 
@@ -87,7 +99,9 @@ class Blob(GitObject):
 
     @property
     def repositories(self):
-        return Repository.objects.filter(commit__blob__sha1__exact=self.sha1)
+        return frontify(uniquify(Repository.objects.
+                                 filter(commit__blob__sha1__exact=self.sha1).iterator()))
+
 
 
 class Tree(GitObject):
@@ -111,7 +125,7 @@ class Tree(GitObject):
     @property
     def repositories(self):
         return frontify(Repository.objects.
-                        filter(commit__trees__sha1__exact=self.sha1).iterator())
+                        filter(commit__tree__sha1__exact=self.sha1).iterator())
 
 class Commit(GitObject):
     _repositories = models.ManyToManyField(Repository)
@@ -128,5 +142,5 @@ class Commit(GitObject):
 
     def add_repository(self, remote):
         if isinstance(remote, str):
-            repository = Repository.get(name=remote)
-        self._repositories.add(repository)
+            remote = Repository.get(name=remote)
+        self._repositories.add(remote)

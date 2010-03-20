@@ -48,6 +48,7 @@ class BackedObject(object):
         instance.save()
         return instance
 
+    @property
     def type(self):
         return type(self).__name__
 
@@ -58,6 +59,9 @@ class BackedObject(object):
             return True
         else:
             return False
+
+    def __str__(self):
+        return '%s: %s' % (type(self).__name__, self.sha1)
 
     def __repr__(self):
         return str(self)
@@ -72,9 +76,6 @@ class Repository(BackedObject):
 
     name = deferred_attribute('name')
     url = deferred_attribute('url')
-
-    def __str__(self):
-        return 'Repo: %s' % self.url
 
 
 class GitObject(BackedObject):
@@ -99,9 +100,6 @@ class Blob(GitObject):
     def add_commit(self, commit):
         return self._backend.add_commit(commit)
 
-    def __str__(self):
-        return 'Blob: %s' % self.sha1
-
 
 class Tree(GitObject):
     commit_names = deferred_attribute('commit_names')
@@ -110,13 +108,7 @@ class Tree(GitObject):
     def add_commit(self, commit):
         return self._backend.add_commit(commit)
 
-    def __str__(self):
-        return 'Tree: %s' % self.sha1
-
 
 class Commit(GitObject):
     def add_repository(self, repo):
         return self._backend.add_repository(repo)
-
-    def __str__(self):
-        return 'Commit: %s' % self.sha1

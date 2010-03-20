@@ -11,6 +11,8 @@ def sha1(string):
     return hashlib.sha1(string).hexdigest()
 
 def normalize_name(name):
+    if not isinstance(name, str):
+        name = name.name
     if hexdigest_re.search(name):
         return name
     else:
