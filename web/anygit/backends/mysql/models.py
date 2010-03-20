@@ -37,7 +37,7 @@ class CustomModel(models.Model):
         try:
             return cls.objects.get(**kwargs)
         except django.core.exceptions.ObjectDoesNotExist, e:
-            raise data.exceptions.DoesNotExist(e.message)
+            raise data.exceptions.DoesNotExist(str(e))
 
     class Meta:
         abstract = True
