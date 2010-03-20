@@ -43,11 +43,11 @@ class CustomModel(models.Model):
         abstract = True
 
 class Repository(CustomModel):
-    name = models.CharField(max_length=255, unique=True, db_index=True)
+    name = models.CharField(max_length=255, unique=True, primary_key=True)
     url = models.CharField(max_length=255, unique=True)
 
 class GitObject(CustomModel):
-    sha1 = models.CharField(max_length=255, unique=True, db_index=True)
+    sha1 = models.CharField(max_length=255, unique=True, primary_key=True)
 
     @staticmethod
     def lookup_by_sha1(sha1, partial=False):

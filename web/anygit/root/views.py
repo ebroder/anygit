@@ -13,7 +13,6 @@ def respond(view):
         template = settings.MAKO_LOOKUP.get_template(params['__template__'])
         template_with_lookup = mako.template.Template(template.source,
                                                       lookup=settings.MAKO_LOOKUP)
-        print params
         rendered_string = template_with_lookup.render(**params)
         return http.HttpResponse(rendered_string)
     return newview
