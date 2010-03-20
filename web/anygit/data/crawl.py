@@ -12,7 +12,6 @@ def add_repo(url):
         remote = repo.add_remote(url)
     except physical_git.GitCallError:
         logger.debug('Already had added %s' % url)
-        return False
 
     try:
         repo_object = models.Repository.get(name=remote)
