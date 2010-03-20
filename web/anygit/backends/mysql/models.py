@@ -39,12 +39,16 @@ class CustomModel(models.Model):
         except django.core.exceptions.ObjectDoesNotExist, e:
             raise data.exceptions.DoesNotExist(e.message)
 
+    class Meta:
+        abstract = True
+
 class Repository(CustomModel):
     name = models.CharField(max_length=255, unique=True, db_index=True)
     url = models.CharField(max_length=255, unique=True)
 
 class GitObject(CustomModel):
     sha1 = models.CharField(max_length=255, unique=True, db_index=True)
+
     @staticmethod
     def lookup_by_sha1(sha1, partial=False):
         if partial:
@@ -60,6 +64,7 @@ class GitObject(CustomModel):
 
     class Meta:
         abstract = True
+
 
 class Blob(GitObject):
     _commits = models.ManyToManyField('Commit')
@@ -82,6 +87,7 @@ class Blob(GitObject):
         # TODO: catch the exception
         commit = Commit.get(sha1=sha1)
         self._commits.add(commit)
+
 
 class Tree(GitObject):
     commits = models.ManyToManyField('Commit')
