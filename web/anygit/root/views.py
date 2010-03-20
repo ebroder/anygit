@@ -1,15 +1,21 @@
+from django import http
 from django import shortcuts
-from django import template
+import mako.template
+
 from anygit import data
+from anygit import settings
 import anygit.data.models
 
 def respond(view):
     def newview(request, *args, **kwargs):
         params = view(request, *args, **kwargs) or {}
-        params.setdefault('__template__', 'root/%s.tmpl' % view.__name__)
-        context = template.RequestContext(request, params)
-        return shortcuts.render_to_response(params['__template__'],
-                                            context_instance=context)
+        params.setdefault('__template__', 'root/%s.mako' % view.__name__)
+        template = settings.MAKO_LOOKUP.get_template(params['__template__'])
+        template_with_lookup = mako.template.Template(template.source,
+                                                      lookup=settings.MAKO_LOOKUP)
+        print params
+        rendered_string = template_with_lookup.render(**params)
+        return http.HttpResponse(rendered_string)
     return newview
 
 @respond

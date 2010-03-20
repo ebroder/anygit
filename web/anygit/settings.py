@@ -80,6 +80,7 @@ INSTALLED_APPS = (
     'backends.mysql',
 )
 
+# Import site local, and set the path
 sys.path[0:0] = [ROOTDIR, os.path.join(ROOTDIR, '..')]
 try:
     from site_local import *
@@ -87,5 +88,10 @@ except ImportError:
     sys.stderr.write("Please create a 'site.py' file with your local settings.")
     sys.exit(1)
 
+# Set up logging conf
 import logging.config
 logging.config.fileConfig(os.path.join(ROOTDIR, '../../conf/logging.conf'))
+
+# Set up mako lookups
+import mako.lookup
+MAKO_LOOKUP = mako.lookup.TemplateLookup(directories=TEMPLATE_DIRS)
