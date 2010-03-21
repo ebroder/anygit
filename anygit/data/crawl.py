@@ -34,7 +34,7 @@ def index_repo(remote):
             try:
                 commit_object = models.Commit.get(commit)
             except exceptions.DoesNotExist:
-                commit_object = models.Commit.create(sha1=commit)
+                commit_object = models.Commit.create(name=commit)
             logger.info('Adding %s to the repositories containing %s' %
                             (remote, commit_object))
             commit_object.add_repository(remote)
@@ -43,7 +43,7 @@ def index_repo(remote):
                 try:
                     blob_object = models.Blob.get(blob)
                 except exceptions.DoesNotExist:
-                    blob_object = models.Blob.create(sha1=blob)
+                    blob_object = models.Blob.create(name=blob)
                 logger.info('Adding %s to the commits containing %s' %
                                 (commit, blob_object))
                 blob_object.add_commit(commit)
