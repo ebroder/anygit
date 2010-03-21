@@ -3,6 +3,8 @@ import sqlalchemy as sa
 from sqlalchemy import orm
 from sqlalchemy.ext import declarative
 
+from anygit.backends import common
+
 
 Session = None
 Engine = None
@@ -67,7 +69,23 @@ trees_commits = sa.Table(
               primary_key=True))
 
 
-class GitObject(Base):
+class SAMixin(object):
+    @classmethod
+    def get(cls, id):
+        """Retrieve an object by primary key"""
+        return Session.query(cls).get(id)
+
+    def save(self):
+        self.validate()
+        if not self._errors:
+            Session.add(self)
+            Session.commit()
+            return True
+        else:
+            return False
+
+
+class GitObject(Base, SAMixin):
     """
     The base class for git objects (such as blobs, commits, etc..).
     Subclasses inherit via join table inheritance.
@@ -85,7 +103,8 @@ class GitObject(Base):
         else:
             return Session.query(cls).filter(cls.name == sha1)
 
-class Blob(GitObject):
+
+class Blob(GitObject, common.CommonBlobMixin):
     """
     Represents a git Blob.  Has a name (the sha1 that identifies this
     object)
@@ -97,7 +116,7 @@ class Blob(GitObject):
                      primary_key=True)
 
 
-class Tree(GitObject):
+class Tree(GitObject, common.CommonTreeMixin):
     """
     Represents a git Tree.  Has a name (the sha1 that identifies this
     object)
@@ -109,7 +128,7 @@ class Tree(GitObject):
                      primary_key=True)
 
 
-class Tag(GitObject):
+class Tag(GitObject, common.CommonTagMixin):
     """
     Represents a git Tree.  Has a name (the sha1 that identifies this
     object)
@@ -124,7 +143,7 @@ class Tag(GitObject):
                             sa.ForeignKey('commits.name'))
 
 
-class Commit(GitObject):
+class Commit(GitObject, common.CommonCommitMixin):
     """
     Represents a git Commit.  Has a name (the sha1 that identifies
     this object).  Also contains blobs, trees, and tags.
@@ -153,7 +172,7 @@ class Commit(GitObject):
                         primaryjoin=(name == Tag.commit_name))
 
 
-class Repository(Base):
+class Repository(Base, SAMixin, common.CommonRepositoryMixin):
     """
     A git repository, corresponding to a remote in the-one-repo.git.
     Contains many commits.
