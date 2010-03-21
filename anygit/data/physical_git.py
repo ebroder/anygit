@@ -3,7 +3,7 @@ import os
 import re
 import subprocess
 
-THE_ONE_REPO_PATH = os.path.join(os.path.dirname(__file__), '../../../the-one-repo.git')
+THE_ONE_REPO_PATH = os.path.join(os.path.dirname(__file__), '../../the-one-repo.git')
 split_re = re.compile(r'[ \t]')
 hexdigest_re = re.compile(r'^[0-9a-fA-F]{40}$')
 
