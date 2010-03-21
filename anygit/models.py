@@ -1,6 +1,7 @@
 import pkg_resources
 
-__MODEL_VARS = ['GitObject',
+__MODEL_VARS = ['setup',
+                'GitObject',
                 'Blob',
                 'Tree',
                 'Tag',

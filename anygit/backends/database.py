@@ -1,3 +1,4 @@
+from pylons import config
 import sqlalchemy as sa
 from sqlalchemy import orm
 from sqlalchemy.ext import declarative
@@ -17,6 +18,11 @@ def init_model(engine):
 
     sm = orm.sessionmaker(autoflush=True, autocommit=False, bind=engine)
     Session = orm.scoped_session(sm)
+
+
+def setup():
+    engine = sa.engine_from_config(config, 'sqlalchemy.')
+    init_model(engine)
 
 
 commits_repositories = sa.Table(
