@@ -126,6 +126,10 @@ class Blob(GitObject, common.CommonBlobMixin):
         self.commits.add(commit)
         self.save()
 
+    @property
+    def repositories(self):
+        return Session.query(Repository).join('commits', 'blobs').filter(Blob.name==self.name)
+
 
 class Tree(GitObject, common.CommonTreeMixin):
     """
@@ -143,6 +147,10 @@ class Tree(GitObject, common.CommonTreeMixin):
             commit = Commit.get(commit)
         self.commits.add(commit)
         self.save()
+
+    @property
+    def repositories(self):
+        return Session.query(Repository).join('commits', 'trees').filter(Tree.name==self.name)
 
 
 class Tag(GitObject, common.CommonTagMixin):
