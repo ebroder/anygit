@@ -1,8 +1,8 @@
 import logging
 
 from anygit.data import exceptions
-from anygit.data import models
 from anygit.data import physical_git
+from anygit import models
 
 logger = logging.getLogger('anygit.data.crawl')
 repo = physical_git.THE_ONE_REPO
