@@ -4,6 +4,7 @@ from sqlalchemy import orm
 from sqlalchemy.ext import declarative
 
 from anygit.backends import common
+from anygit.data import exceptions
 
 
 Session = None
@@ -73,7 +74,11 @@ class SAMixin(object):
     @classmethod
     def get(cls, id):
         """Retrieve an object by primary key"""
-        return Session.query(cls).get(id)
+        instance = Session.query(cls).get(id)
+        if instance:
+            return instance
+        else:
+            raise exceptions.DoesNotExist('%s: %s' % (cls, id))
 
     def save(self):
         self.validate()
