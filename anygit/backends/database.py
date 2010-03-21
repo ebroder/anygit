@@ -58,46 +58,12 @@ trees_commits = sa.Table(
               primary_key=True))
 
 
-class Repository(Base):
-    __tablename__ = 'repositories'
-    name = sa.Column(sa.types.String(length=40), primary_key=True)
-    url = sa.Column(sa.types.String(length=255), unique=True)
-
-
 class GitObject(Base):
     __tablename__ = 'git_objects'
     name = sa.Column(sa.types.String(length=40), primary_key=True)
     type = sa.Column(sa.types.String(length=50))
 
     __mapper_args__ = {'polymorphic_on': type}
-
-
-class Commit(GitObject):
-    __tablename__ = 'commits'
-    __mapper_args__ = {'polymorphic_identity': 'commit'}
-    name = sa.Column(sa.types.String(length=40),
-                     sa.ForeignKey('git_objects.name'),
-                     primary_key=True)
-
-    repositories = orm.relation(Repository,
-                                backref=orm.backref('commits',
-                                                    collection_class=set),
-                                collection_class=set,
-                                secondary=commits_repositories)
-
-
-class Tree(GitObject):
-    __tablename__ = 'trees'
-    __mapper_args__ = {'polymorphic_identity': 'tree'}
-    name = sa.Column(sa.types.String(length=40),
-                     sa.ForeignKey('git_objects.name'),
-                     primary_key=True)
-
-    commits = orm.relation(Commit,
-                           backref=orm.backref('trees',
-                                               collection_class=set),
-                           collection_class=set,
-                           secondary=trees_commits)
 
 
 class Blob(GitObject):
@@ -107,21 +73,57 @@ class Blob(GitObject):
                      sa.ForeignKey('git_objects.name'),
                      primary_key=True)
 
-    commits = orm.relation(Commit,
-                           backref=orm.backref('blobs',
-                                               collection_class=set),
-                           collection_class=set,
-                           secondary=blobs_commits)
+
+class Tree(GitObject):
+    __tablename__ = 'trees'
+    __mapper_args__ = {'polymorphic_identity': 'tree'}
+    name = sa.Column(sa.types.String(length=40),
+                     sa.ForeignKey('git_objects.name'),
+                     primary_key=True)
 
 
 class Tag(GitObject):
     __tablename__ = 'tags'
     __mapper_args__ = {'polymorphic_identity': 'tag'}
     name = sa.Column(sa.types.String(length=40),
-                     sa.ForeignKey('git_objects.tag'),
+                     sa.ForeignKey('git_objects.name'),
                      primary_key=True)
 
-    commit = orm.relation(Commit,
-                          backref=orm.backref('tags',
-                                              collection_class=set,
-                                              cascade='all'))
+    commit = sa.Column(sa.types.String(length=40),
+                       sa.ForeignKey('commits.name'))
+
+
+class Commit(GitObject):
+    __tablename__ = 'commits'
+    __mapper_args__ = {'polymorphic_identity': 'commit'}
+    name = sa.Column(sa.types.String(length=40),
+                     sa.ForeignKey('git_objects.name'),
+                     primary_key=True)
+
+    blobs = orm.relation(Blob,
+                         backref=orm.backref('commits',
+                                             collection_class=set),
+                         collection_class=set,
+                         secondary=blobs_commits)
+
+    trees = orm.relation(Tree,
+                         backref=orm.backref('commits',
+                                             collection_class=set),
+                         collection_class=set,
+                         secondary=trees_commits)
+
+    tags = orm.relation(Tag,
+                        collection_class=set,
+                        cascade='all')
+
+
+class Repository(Base):
+    __tablename__ = 'repositories'
+    name = sa.Column(sa.types.String(length=40), primary_key=True)
+    url = sa.Column(sa.types.String(length=255), unique=True)
+
+    commits = orm.relation(Commit,
+                           backref=orm.backref('repositories',
+                                               collection_class=set),
+                           collection_class=set,
+                           secondary=commits_repositories)
