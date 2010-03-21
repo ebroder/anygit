@@ -30,6 +30,8 @@ app_instance_uuid = ${app_instance_uuid}
 #beaker.cache.data_dir = %(here)s/data/cache
 #beaker.session.data_dir = %(here)s/data/sessions
 
+backend = database
+
 # SQLAlchemy database URL
 sqlalchemy.url = sqlite:///production.db
 

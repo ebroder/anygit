@@ -1,4 +1,5 @@
 import pkg_resources
+from pylons import config
 
 __MODEL_VARS = ['setup',
                 'GitObject',
@@ -8,7 +9,8 @@ __MODEL_VARS = ['setup',
                 'Commit',
                 'Repository']
 
-__BACKEND_EP = pkg_resources.iter_entry_points('anygit.backend', 'database').next()
+__BACKEND_NAME = config.get('backend', 'database')
+__BACKEND_EP = pkg_resources.iter_entry_points('anygit.backend', __BACKEND_NAME).next()
 __BACKEND = __BACKEND_EP.load()
 
 for __VAR in __MODEL_VARS:
