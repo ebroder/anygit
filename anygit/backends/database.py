@@ -102,8 +102,8 @@ class Tag(GitObject):
                      sa.ForeignKey('git_objects.name'),
                      primary_key=True)
 
-    commit = sa.Column(sa.types.String(length=40),
-                       sa.ForeignKey('commits.name'))
+    commit_name = sa.Column(sa.types.String(length=40),
+                            sa.ForeignKey('commits.name'))
 
 
 class Commit(GitObject):
@@ -126,8 +126,9 @@ class Commit(GitObject):
                          secondary=trees_commits)
 
     tags = orm.relation(Tag,
+                        backref='commit',
                         collection_class=set,
-                        cascade='all')
+                        primaryjoin=(name == Tag.commit_name))
 
 
 class Repository(Base):
