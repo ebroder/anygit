@@ -9,7 +9,7 @@ from sqlalchemy import engine_from_config
 import anygit.lib.app_globals as app_globals
 import anygit.lib.helpers
 from anygit.config.routing import make_map
-from anygit.model import init_model
+from anygit.backends.database import init_model
 
 def load_environment(global_conf, app_conf):
     """Configure the Pylons environment via the ``pylons.config``
