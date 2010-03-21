@@ -4,12 +4,16 @@ from sqlalchemy.ext import declarative
 
 
 Session = None
+Engine = None
 Base = declarative.declarative_base()
+Metadata = Base.metadata
 
 
 def init_model(engine):
     """Call me before using any of the tables or classes in the model."""
-    global Session
+    global Session, Engine
+
+    Engine = engine
 
     sm = orm.sessionmaker(autoflush=True, autocommit=False, bind=engine)
     Session = orm.scoped_session(sm)
