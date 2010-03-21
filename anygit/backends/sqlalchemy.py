@@ -21,7 +21,7 @@ commits_repositories = sa.Table(
     sa.Column('commit_name',
               sa.types.String(length=40),
               sa.ForeignKey('commits.name'),
-              primary_key=True)
+              primary_key=True),
     sa.Column('repository_name',
               sa.types.String(length=40),
               sa.ForeignKey('repositories.name'),
@@ -34,7 +34,7 @@ blobs_commits = sa.Table(
     sa.Column('blob_name',
               sa.types.String(length=40),
               sa.ForeignKey('blobs.name'),
-              primary_key=True)
+              primary_key=True),
     sa.Column('commit_name',
               sa.types.String(length=40),
               sa.ForeignKey('commits.name'),
@@ -47,7 +47,7 @@ trees_commits = sa.Table(
     sa.Column('tree_name',
               sa.types.String(length=40),
               sa.ForeignKey('trees.name'),
-              primary_key=True)
+              primary_key=True),
     sa.Column('commit_name',
               sa.types.String(length=40),
               sa.ForeignKey('commits.name'),
@@ -77,7 +77,7 @@ class Commit(GitObject):
 
     repositories = orm.relation(Repository,
                                 backref=orm.backref('commits',
-                                                    collection_class=set)
+                                                    collection_class=set),
                                 collection_class=set,
                                 secondary=commits_repositories)
 
@@ -91,7 +91,7 @@ class Tree(GitObject):
 
     commits = orm.relation(Commit,
                            backref=orm.backref('trees',
-                                               collection_class=set)
+                                               collection_class=set),
                            collection_class=set,
                            secondary=trees_commits)
 
@@ -105,7 +105,7 @@ class Blob(GitObject):
 
     commits = orm.relation(Commit,
                            backref=orm.backref('blobs',
-                                               collection_class=set)
+                                               collection_class=set),
                            collection_class=set,
                            secondary=blobs_commits)
 
