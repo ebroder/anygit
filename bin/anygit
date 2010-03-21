@@ -3,8 +3,6 @@ import logging
 import optparse
 import os
 import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), '../web/'))
-os.environ['DJANGO_SETTINGS_MODULE'] = 'anygit.settings'
 
 from anygit.data import crawl, physical_git, cleanup
 
