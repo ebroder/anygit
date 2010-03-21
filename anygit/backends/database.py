@@ -120,6 +120,12 @@ class Blob(GitObject, common.CommonBlobMixin):
                      sa.ForeignKey('git_objects.name'),
                      primary_key=True)
 
+    def add_commit(self, commit):
+        if isinstance(commit, str):
+            commit = Commit.get(commit)
+        self.commits.add(commit)
+        self.save()
+
 
 class Tree(GitObject, common.CommonTreeMixin):
     """
@@ -131,6 +137,12 @@ class Tree(GitObject, common.CommonTreeMixin):
     name = sa.Column(sa.types.String(length=40),
                      sa.ForeignKey('git_objects.name'),
                      primary_key=True)
+
+    def add_commit(self, commit):
+        if isinstance(commit, str):
+            commit = Commit.get(commit)
+        self.commits.add(commit)
+        self.save()
 
 
 class Tag(GitObject, common.CommonTagMixin):
@@ -175,6 +187,11 @@ class Commit(GitObject, common.CommonCommitMixin):
                         backref='commit',
                         collection_class=set,
                         primaryjoin=(name == Tag.commit_name))
+
+    def add_repository(self, remote):
+        if isinstance(remote, str):
+            remote = Repository.get(remote)
+        self.repositories.add(remote)
 
 
 class Repository(Base, SAMixin, common.CommonRepositoryMixin):
