@@ -1,5 +1,4 @@
-import anygit.backends.mysql.models
-from anygit.backends import mysql
+from anygit.backends import database
 
 def deferred_attribute(attr):
     def get(self):
@@ -11,10 +10,10 @@ def deferred_attribute(attr):
     return property(get, set)
 
 def backend_class(klass):
-    lookup = {Repository : mysql.models.Repository,
-              Blob : mysql.models.Blob,
-              Tree : mysql.models.Tree,
-              Commit : mysql.models.Commit}
+    lookup = {Repository : database.Repository,
+              Blob : database.Blob,
+              Tree : database.Tree,
+              Commit : database.Commit}
     return lookup[klass]
 
 class BackedObject(object):
@@ -90,7 +89,7 @@ class GitObject(BackedObject):
 
     @classmethod
     def lookup_by_sha1(cls, sha1, partial=False):
-        return mysql.models.GitObject.lookup_by_sha1(sha1, partial=partial)
+        return database.GitObject.lookup_by_sha1(sha1, partial=partial)
 
 
 class Blob(GitObject):
