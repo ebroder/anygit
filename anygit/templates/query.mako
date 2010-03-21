@@ -1,7 +1,7 @@
 <%inherit file="layouts/application.mako"/>
 
 <ul>
-% for object in objects:
+% for object in c.objects:
 <% 
 t = object.type
 print t
