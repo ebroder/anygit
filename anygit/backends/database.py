@@ -65,6 +65,13 @@ class GitObject(Base):
 
     __mapper_args__ = {'polymorphic_on': type}
 
+    @classmethod
+    def lookup_by_sha1(cls, sha1, partial=False):
+        if partial:
+            return Session.query(cls).filter(cls.name.startswith(sha1))
+        else:
+            return Session.query(cls).filter(cls.name == sha1)
+
 
 class Blob(GitObject):
     __tablename__ = 'blobs'
