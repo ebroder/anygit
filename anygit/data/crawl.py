@@ -15,7 +15,7 @@ def add_repo(url):
         logger.debug('Already had added %s' % url)
 
     try:
-        repo_object = models.Repository.get(name=remote)
+        repo_object = models.Repository.get(remote)
     except exceptions.DoesNotExist:
         logger.info('Time to create new repository %s' % remote)
         repo_object = models.Repository.create(name=remote, url=url)
@@ -28,11 +28,11 @@ def fetch_repo(remote):
 
 def index_repo(remote):
     remote_name = physical_git.normalize_name(remote)
-    remote = models.Repository.get(name=remote_name)
+    remote = models.Repository.get(remote_name)
     for branch in repo.list_branches(remote):
         for commit in repo.list_commits(remote, branch):
             try:
-                commit_object = models.Commit.get(sha1=commit)
+                commit_object = models.Commit.get(commit)
             except exceptions.DoesNotExist:
                 commit_object = models.Commit.create(sha1=commit)
             logger.info('Adding %s to the repositories containing %s' %
@@ -41,7 +41,7 @@ def index_repo(remote):
 
             for blob in repo.list_blobs(commit):
                 try:
-                    blob_object = models.Blob.get(sha1=blob)
+                    blob_object = models.Blob.get(blob)
                 except exceptions.DoesNotExist:
                     blob_object = models.Blob.create(sha1=blob)
                 logger.info('Adding %s to the commits containing %s' %
