@@ -1,6 +1,6 @@
 import logging
-import physical_git
-import models
+from anygit.data import physical_git
+from anygit import models
 
 logger = logging.getLogger('anygit.data.cleanup')
 repo = physical_git.THE_ONE_REPO
