@@ -21,10 +21,13 @@ def init_model(engine):
 
 
 def setup():
+    """
+    Sets up the database session
+    """
     engine = sa.engine_from_config(config, 'sqlalchemy.')
     init_model(engine)
 
-
+# Join table for commit -> repositories mapping
 commits_repositories = sa.Table(
     'commits_repositories',
     Base.metadata,
@@ -37,7 +40,7 @@ commits_repositories = sa.Table(
               sa.ForeignKey('repositories.name'),
               primary_key=True))
 
-
+# Join table for blob -> commits mapping
 blobs_commits = sa.Table(
     'blobs_commits',
     Base.metadata,
@@ -50,7 +53,7 @@ blobs_commits = sa.Table(
               sa.ForeignKey('commits.name'),
               primary_key=True))
 
-
+# Join table for tree -> commits mapping
 trees_commits = sa.Table(
     'trees_commits',
     Base.metadata,
@@ -65,6 +68,10 @@ trees_commits = sa.Table(
 
 
 class GitObject(Base):
+    """
+    The base class for git objects (such as blobs, commits, etc..).
+    Subclasses inherit via join table inheritance.
+    """
     __tablename__ = 'git_objects'
     name = sa.Column(sa.types.String(length=40), primary_key=True)
     type = sa.Column(sa.types.String(length=50))
@@ -78,8 +85,11 @@ class GitObject(Base):
         else:
             return Session.query(cls).filter(cls.name == sha1)
 
-
 class Blob(GitObject):
+    """
+    Represents a git Blob.  Has a name (the sha1 that identifies this
+    object)
+    """
     __tablename__ = 'blobs'
     __mapper_args__ = {'polymorphic_identity': 'blob'}
     name = sa.Column(sa.types.String(length=40),
@@ -88,6 +98,10 @@ class Blob(GitObject):
 
 
 class Tree(GitObject):
+    """
+    Represents a git Tree.  Has a name (the sha1 that identifies this
+    object)
+    """
     __tablename__ = 'trees'
     __mapper_args__ = {'polymorphic_identity': 'tree'}
     name = sa.Column(sa.types.String(length=40),
@@ -96,6 +110,10 @@ class Tree(GitObject):
 
 
 class Tag(GitObject):
+    """
+    Represents a git Tree.  Has a name (the sha1 that identifies this
+    object)
+    """
     __tablename__ = 'tags'
     __mapper_args__ = {'polymorphic_identity': 'tag'}
     name = sa.Column(sa.types.String(length=40),
@@ -107,6 +125,10 @@ class Tag(GitObject):
 
 
 class Commit(GitObject):
+    """
+    Represents a git Commit.  Has a name (the sha1 that identifies
+    this object).  Also contains blobs, trees, and tags.
+    """
     __tablename__ = 'commits'
     __mapper_args__ = {'polymorphic_identity': 'commit'}
     name = sa.Column(sa.types.String(length=40),
@@ -132,6 +154,10 @@ class Commit(GitObject):
 
 
 class Repository(Base):
+    """
+    A git repository, corresponding to a remote in the-one-repo.git.
+    Contains many commits.
+    """
     __tablename__ = 'repositories'
     name = sa.Column(sa.types.String(length=40), primary_key=True)
     url = sa.Column(sa.types.String(length=255), unique=True)
