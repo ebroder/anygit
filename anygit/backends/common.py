@@ -1,3 +1,5 @@
+import urlparse
+
 class CommonMixin(object):
     """Functionality common to all backends."""
     def __new__(cls, *args, **kwargs):
@@ -29,6 +31,15 @@ class CommonRepositoryMixin(CommonMixin):
             self.error("name", "Must provide a name")
         if not self.url:
             self.error("url", "Must provide a url")
+
+    @property
+    def host(self):
+        return urlparse.urlparse(self.url).netloc
+
+    @property
+    def path(self):
+        return urlparse.urlparse(self.url).path
+
 
 
 class CommonGitObjectMixin(CommonMixin):
