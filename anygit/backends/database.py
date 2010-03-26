@@ -191,6 +191,16 @@ class Commit(GitObject, common.CommonCommitMixin):
         self.repositories.add(remote)
 
 
+class RemoteHead(Base, SAMixin, common.CommonRemoteHeadMixin):
+    __tablename__ = 'remote_heads'
+    reponame = sa.Column(sa.ForeignKey('repositories.name'),
+                         primary_key=True)
+    refname = sa.Column(sa.types.String(length=255), primary_key=True)
+    commit_name =  sa.Column(sa.ForeignKey('commits.name'))
+    commit = orm.relation(Commit,
+                          collection_class=set)
+
+
 class Repository(Base, SAMixin, common.CommonRepositoryMixin):
     """
     A git repository, corresponding to a remote in the-one-repo.git.

@@ -41,6 +41,9 @@ class CommonRepositoryMixin(CommonMixin):
         return urlparse.urlparse(self.url).path
 
 
+class CommonRemoteHeadMixin(CommonMixin):
+    pass
+
 
 class CommonGitObjectMixin(CommonMixin):
     def __str__(self):
