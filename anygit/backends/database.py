@@ -35,11 +35,9 @@ commits_repositories = sa.Table(
     'commits_repositories',
     Base.metadata,
     sa.Column('commit_name',
-              sa.types.String(length=40),
               sa.ForeignKey('commits.name'),
               primary_key=True),
     sa.Column('repository_name',
-              sa.types.String(length=40),
               sa.ForeignKey('repositories.name'),
               primary_key=True))
 
@@ -48,11 +46,9 @@ blobs_commits = sa.Table(
     'blobs_commits',
     Base.metadata,
     sa.Column('blob_name',
-              sa.types.String(length=40),
               sa.ForeignKey('blobs.name'),
               primary_key=True),
     sa.Column('commit_name',
-              sa.types.String(length=40),
               sa.ForeignKey('commits.name'),
               primary_key=True))
 
@@ -61,11 +57,9 @@ trees_commits = sa.Table(
     'trees_commits',
     Base.metadata,
     sa.Column('tree_name',
-              sa.types.String(length=40),
               sa.ForeignKey('trees.name'),
               primary_key=True),
     sa.Column('commit_name',
-              sa.types.String(length=40),
               sa.ForeignKey('commits.name'),
               primary_key=True))
 
@@ -116,8 +110,7 @@ class Blob(GitObject, common.CommonBlobMixin):
     """
     __tablename__ = 'blobs'
     __mapper_args__ = {'polymorphic_identity': 'blob'}
-    name = sa.Column(sa.types.String(length=40),
-                     sa.ForeignKey('git_objects.name'),
+    name = sa.Column(sa.ForeignKey('git_objects.name'),
                      primary_key=True)
 
     def add_commit(self, commit):
@@ -138,8 +131,7 @@ class Tree(GitObject, common.CommonTreeMixin):
     """
     __tablename__ = 'trees'
     __mapper_args__ = {'polymorphic_identity': 'tree'}
-    name = sa.Column(sa.types.String(length=40),
-                     sa.ForeignKey('git_objects.name'),
+    name = sa.Column(sa.ForeignKey('git_objects.name'),
                      primary_key=True)
 
     def add_commit(self, commit):
@@ -160,12 +152,10 @@ class Tag(GitObject, common.CommonTagMixin):
     """
     __tablename__ = 'tags'
     __mapper_args__ = {'polymorphic_identity': 'tag'}
-    name = sa.Column(sa.types.String(length=40),
-                     sa.ForeignKey('git_objects.name'),
+    name = sa.Column(sa.ForeignKey('git_objects.name'),
                      primary_key=True)
 
-    commit_name = sa.Column(sa.types.String(length=40),
-                            sa.ForeignKey('commits.name'))
+    commit_name = sa.Column(sa.ForeignKey('commits.name'))
 
 
 class Commit(GitObject, common.CommonCommitMixin):
@@ -175,8 +165,7 @@ class Commit(GitObject, common.CommonCommitMixin):
     """
     __tablename__ = 'commits'
     __mapper_args__ = {'polymorphic_identity': 'commit'}
-    name = sa.Column(sa.types.String(length=40),
-                     sa.ForeignKey('git_objects.name'),
+    name = sa.Column(sa.ForeignKey('git_objects.name'),
                      primary_key=True)
 
     blobs = orm.relation(Blob,
