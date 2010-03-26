@@ -215,3 +215,7 @@ class Repository(Base, SAMixin, common.CommonRepositoryMixin):
                                                collection_class=set),
                            collection_class=set,
                            secondary=commits_repositories)
+
+    remote_heads = orm.relation(RemoteHead,
+                                backref='repository',
+                                collection_class=set)
