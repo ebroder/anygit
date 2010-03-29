@@ -34,33 +34,33 @@ def setup():
 commits_repositories = sa.Table(
     'commits_repositories',
     Base.metadata,
-    sa.Column('commit_name',
-              sa.ForeignKey('commits.name'),
+    sa.Column('commit_id',
+              sa.ForeignKey('commits.id'),
               primary_key=True),
-    sa.Column('repository_name',
-              sa.ForeignKey('repositories.name'),
+    sa.Column('repository_id',
+              sa.ForeignKey('repositories.id'),
               primary_key=True))
 
 # Join table for blob -> commits mapping
 blobs_commits = sa.Table(
     'blobs_commits',
     Base.metadata,
-    sa.Column('blob_name',
-              sa.ForeignKey('blobs.name'),
+    sa.Column('blob_id',
+              sa.ForeignKey('blobs.id'),
               primary_key=True),
-    sa.Column('commit_name',
-              sa.ForeignKey('commits.name'),
+    sa.Column('commit_id',
+              sa.ForeignKey('commits.id'),
               primary_key=True))
 
 # Join table for tree -> commits mapping
 trees_commits = sa.Table(
     'trees_commits',
     Base.metadata,
-    sa.Column('tree_name',
-              sa.ForeignKey('trees.name'),
+    sa.Column('tree_id',
+              sa.ForeignKey('trees.id'),
               primary_key=True),
-    sa.Column('commit_name',
-              sa.ForeignKey('commits.name'),
+    sa.Column('commit_id',
+              sa.ForeignKey('commits.id'),
               primary_key=True))
 
 
@@ -90,7 +90,7 @@ class GitObject(Base, SAMixin):
     Subclasses inherit via join table inheritance.
     """
     __tablename__ = 'git_objects'
-    name = sa.Column(sa.types.String(length=40), primary_key=True)
+    id = sa.Column(sa.types.String(length=40), primary_key=True)
     type = sa.Column(sa.types.String(length=50))
 
     __mapper_args__ = {'polymorphic_on': type}
@@ -98,20 +98,20 @@ class GitObject(Base, SAMixin):
     @classmethod
     def lookup_by_sha1(cls, sha1, partial=False):
         if partial:
-            return Session.query(cls).filter(cls.name.startswith(sha1))
+            return Session.query(cls).filter(cls.id.startswith(sha1))
         else:
-            return Session.query(cls).filter(cls.name == sha1)
+            return Session.query(cls).filter(cls.id == sha1)
 
 
 class Blob(GitObject, common.CommonBlobMixin):
     """
-    Represents a git Blob.  Has a name (the sha1 that identifies this
+    Represents a git Blob.  Has an id (the sha1 that identifies this
     object)
     """
     __tablename__ = 'blobs'
     __mapper_args__ = {'polymorphic_identity': 'blob'}
-    name = sa.Column(sa.ForeignKey('git_objects.name'),
-                     primary_key=True)
+    id = sa.Column(sa.ForeignKey('git_objects.id'),
+                   primary_key=True)
 
     def add_commit(self, commit):
         if isinstance(commit, str):
@@ -121,18 +121,18 @@ class Blob(GitObject, common.CommonBlobMixin):
 
     @property
     def repositories(self):
-        return Session.query(Repository).join('commits', 'blobs').filter(Blob.name==self.name)
+        return Session.query(Repository).join('commits', 'blobs').filter(Blob.id==self.id)
 
 
 class Tree(GitObject, common.CommonTreeMixin):
     """
-    Represents a git Tree.  Has a name (the sha1 that identifies this
+    Represents a git Tree.  Has an id (the sha1 that identifies this
     object)
     """
     __tablename__ = 'trees'
     __mapper_args__ = {'polymorphic_identity': 'tree'}
-    name = sa.Column(sa.ForeignKey('git_objects.name'),
-                     primary_key=True)
+    id = sa.Column(sa.ForeignKey('git_objects.id'),
+                   primary_key=True)
 
     def add_commit(self, commit):
         if isinstance(commit, str):
@@ -142,31 +142,31 @@ class Tree(GitObject, common.CommonTreeMixin):
 
     @property
     def repositories(self):
-        return Session.query(Repository).join('commits', 'trees').filter(Tree.name==self.name)
+        return Session.query(Repository).join('commits', 'trees').filter(Tree.id==self.id)
 
 
 class Tag(GitObject, common.CommonTagMixin):
     """
-    Represents a git Tree.  Has a name (the sha1 that identifies this
+    Represents a git Tree.  Has an id (the sha1 that identifies this
     object)
     """
     __tablename__ = 'tags'
     __mapper_args__ = {'polymorphic_identity': 'tag'}
-    name = sa.Column(sa.ForeignKey('git_objects.name'),
-                     primary_key=True)
+    id = sa.Column(sa.ForeignKey('git_objects.id'),
+                   primary_key=True)
 
-    commit_name = sa.Column(sa.ForeignKey('commits.name'))
+    commit_id = sa.Column(sa.ForeignKey('commits.id'))
 
 
 class Commit(GitObject, common.CommonCommitMixin):
     """
-    Represents a git Commit.  Has a name (the sha1 that identifies
+    Represents a git Commit.  Has an id (the sha1 that identifies
     this object).  Also contains blobs, trees, and tags.
     """
     __tablename__ = 'commits'
     __mapper_args__ = {'polymorphic_identity': 'commit'}
-    name = sa.Column(sa.ForeignKey('git_objects.name'),
-                     primary_key=True)
+    id = sa.Column(sa.ForeignKey('git_objects.id'),
+                   primary_key=True)
 
     blobs = orm.relation(Blob,
                          backref=orm.backref('commits',
@@ -183,23 +183,27 @@ class Commit(GitObject, common.CommonCommitMixin):
     tags = orm.relation(Tag,
                         backref='commit',
                         collection_class=set,
-                        primaryjoin=(name == Tag.commit_name))
+                        primaryjoin=(id == Tag.commit_id))
 
     def add_repository(self, remote):
         if isinstance(remote, str):
             remote = Repository.get(remote)
         self.repositories.add(remote)
 
+    @classmethod
+    def find_matching(cls, sha1):
+        """Given a list of sha1s, find the matching commit objects"""
+        return Session.query(cls).filter(cls.id.in_(commits))
+
 
 class RemoteHead(Base, SAMixin, common.CommonRemoteHeadMixin):
     __tablename__ = 'remote_heads'
-    reponame = sa.Column(sa.ForeignKey('repositories.name'),
-                         primary_key=True)
-    refname = sa.Column(sa.types.String(length=255), primary_key=True)
-    commit_name =  sa.Column(sa.ForeignKey('commits.name'))
+    repo_id = sa.Column(sa.ForeignKey('repositories.id'),
+                        primary_key=True)
+    ref_id = sa.Column(sa.types.String(length=255), primary_key=True)
+    commit_id =  sa.Column(sa.ForeignKey('commits.id'))
     commit = orm.relation(Commit,
                           collection_class=set)
-
 
 class Repository(Base, SAMixin, common.CommonRepositoryMixin):
     """
@@ -207,7 +211,7 @@ class Repository(Base, SAMixin, common.CommonRepositoryMixin):
     Contains many commits.
     """
     __tablename__ = 'repositories'
-    name = sa.Column(sa.types.String(length=40), primary_key=True)
+    id = sa.Column(sa.types.String(length=40), primary_key=True)
     url = sa.Column(sa.types.String(length=255), unique=True)
 
     commits = orm.relation(Commit,

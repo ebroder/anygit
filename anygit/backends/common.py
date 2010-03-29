@@ -22,13 +22,13 @@ class CommonMixin(object):
 
 class CommonRepositoryMixin(CommonMixin):
     def __str__(self):
-        return "Repository: %s" % self.name
+        return "Repository: %s" % self.id
     __repr__ = __str__
 
     def validate(self):
         super(CommonRepositoryMixin, self).validate()
-        if not self.name:
-            self.error("name", "Must provide a name")
+        if not self.id:
+            self.error("id", "Must provide an id")
         if not self.url:
             self.error("url", "Must provide a url")
 
@@ -47,13 +47,13 @@ class CommonRemoteHeadMixin(CommonMixin):
 
 class CommonGitObjectMixin(CommonMixin):
     def __str__(self):
-        return "%s: %s" % (self.type, self.name)
+        return "%s: %s" % (self.type, self.id)
     __repr__ = __str__
 
     def validate(self):
         super(CommonGitObjectMixin, self).validate()
-        if not self.name:
-            self.error("name", "Must provide a name")
+        if not self.id:
+            self.error("id", "Must provide an id")
 
 
 class CommonBlobMixin(CommonGitObjectMixin):
