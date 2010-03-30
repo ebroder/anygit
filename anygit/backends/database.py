@@ -63,6 +63,17 @@ trees_commits = sa.Table(
               sa.ForeignKey('commits.id'),
               primary_key=True))
 
+# Join table for commit -> parents mapping
+commits_parents = sa.Table(
+    'commits_parents',
+    Base.metadata,
+    sa.Column('child_id',
+              sa.ForeignKey('commits.id'),
+              primary_key=True),
+    sa.Column('parent_id',
+              sa.ForeignKey('commits.id'),
+              primary_key=True))
+
 
 class SAMixin(object):
     @classmethod
@@ -201,6 +212,14 @@ class Commit(GitObject, common.CommonCommitMixin):
                         backref='commit',
                         collection_class=set,
                         primaryjoin=(id == Tag.commit_id))
+
+    parents = orm.relation('Commit',
+                           backref=orm.backref('children',
+                                               collection_class=set),
+                           collection_class=set,
+                           primaryjoin=(id == commits_parents.c.child_id),
+                           secondaryjoin=(commits_parents.c.parent_id == id),
+                           secondary=commits_parents)
 
     def add_repository(self, remote):
         if isinstance(remote, str):
