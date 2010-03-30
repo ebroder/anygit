@@ -14,8 +14,7 @@ def fetch(repo):
         logger.debug('Called determine_wants on %s' % refs_dict)
         matching_commits = [c.id for c in models.Commit.find_matching(refs_dict.itervalues())]
         missing_commits = set(refs_dict.itervalues()) - set(matching_commits)
-        # TODO:
-        return refs_dict.values() # list(missing_commits)
+        return list(missing_commits)
 
     def get_parent(sha1):
         logger.debug('Called get parent on %s' % sha1)
@@ -45,7 +44,7 @@ def fetch(repo):
 
     return ''.join(retrieved_data)
 
-def process_data(data, callback, is_path=False):
+def _process_data(data, callback, is_path):
     if is_path:
         pack_data = pack.PackData.from_path(data)
     else:
@@ -54,31 +53,54 @@ def process_data(data, callback, is_path=False):
         pack_data = pack.PackData.from_file(file, length)
     uncompressed_pack = pack.Pack.from_objects(pack_data, None)
     for obj in uncompressed_pack.iterobjects():
-        try:
-            callback(obj)
-        except:
-            return obj
+        callback(obj)
 
-def get_save_method(repo):
-    def save_object(obj):
+def get_save_methods(repo):
+    def create_object(obj):
         object_type = obj._type
         logger.debug('About to create %s %s' % (object_type, obj.id))
         if object_type == 'commit':
             c = models.Commit.get_or_create(id=obj.id)
-            c.add_repository(repo)
-            c.add_tree(obj.tree)
-            for parent in c.parents:
-                c.add_parent(parent)
         elif object_type == 'tree':
             t = models.Tree.get_or_create(id=obj.id)
-            # TODO:
-            # for item in obj.iteritems():
-            #     t.add_child(item)
+        elif object_type == 'tag':
+            t = models.Tag.get_or_create(id=obj.id)
+        elif object_type == 'blob':
+            b = models.Blob.get_or_create(id=obj.id)
+        else:
+            raise ValueEror('Unrecognized type %s' % object_type)        
+
+    def index(obj):
+        object_type = obj._type
+        logger.debug('About to index %s %s' % (object_type, obj.id))
+        if object_type == 'commit':
+            c = models.Commit.get(id=obj.id)
+            c.add_repository(repo)
+            c.add_tree(obj.tree)
+            c.add_parents(obj.parents)
+        elif object_type == 'tree':
+            t = models.Tree.get(id=obj.id)
+            for _, _, sha1 in obj.iteritems():
+                child = models.GitObject.get(sha1)
+                child.add_commits(t.commits)
         elif object_type == 'tag':
             t = models.Tag.get_or_create(id=obj.id)
             raise UnimplementedError
         elif object_type == 'blob':
-            b = models.Blob.get_or_create(id=obj.id)
+            pass
         else:
             raise ValueEror('Unrecognized type %s' % object_type)
-    return save_object
+    return create_object, index
+
+def index_data(data, repo, is_path=False):
+    if not data:
+        logger.error('No data to index')
+        return
+    create_object, index = get_save_methods(repo)
+    _process_data(data, callback=create_object, is_path=is_path)
+    _process_data(data, callback=index, is_path=is_path)
+
+def fetch_and_index(repo):
+    data = fetch(repo)
+    index_data(data, repo)
+
