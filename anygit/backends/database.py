@@ -74,6 +74,23 @@ class SAMixin(object):
         else:
             raise exceptions.DoesNotExist('%s: %s' % (cls, id))
 
+    @classmethod
+    def get_by_attributes(cls, **kwargs):
+        results = Session.query(cls)
+        for key, value in kwargs.iteritems():
+            results = results.filter(getattr(cls, key) == value)
+        count = results.count()
+        if count == 1:
+            return list(results)[0]
+        elif count == 0:
+            raise exceptions.DoesNotExist('%s: %s' % (cls, kwargs))
+        else:
+            raise exceptions.NotUnique('%s: %s' % (cls, kwargs))
+
+    @classmethod
+    def all(cls):
+        return Session.query(cls).all()
+
     def save(self):
         self.validate()
         if not self._errors:
@@ -190,10 +207,20 @@ class Commit(GitObject, common.CommonCommitMixin):
             remote = Repository.get(remote)
         self.repositories.add(remote)
 
+    def add_tree(self, tree):
+        if isinstance(tree, str):
+            tree = Tree.get_or_create(id=tree)
+        self.trees.add(tree)
+
+    def add_parent(self, parent):
+        if isinstance(parent, str):
+            parent = Commit.get_or_create(id=parent)
+        self.parents.add(parent)
+
     @classmethod
-    def find_matching(cls, sha1):
+    def find_matching(cls, sha1s):
         """Given a list of sha1s, find the matching commit objects"""
-        return Session.query(cls).filter(cls.id.in_(commits))
+        return Session.query(cls).filter(cls.id.in_(sha1s))
 
 
 class RemoteHead(Base, SAMixin, common.CommonRemoteHeadMixin):
