@@ -3,3 +3,6 @@ class Error(Exception):
 
 class DoesNotExist(Error):
     pass
+
+class NotUnique(Error):
+    pass
