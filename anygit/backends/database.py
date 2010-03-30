@@ -1,3 +1,4 @@
+import logging
 from pylons import config
 import sqlalchemy as sa
 from sqlalchemy import orm
@@ -6,6 +7,7 @@ from sqlalchemy.ext import declarative
 from anygit.backends import common
 from anygit.data import exceptions
 
+logger = logging.getLogger(__name__)
 
 Session = None
 Engine = None
@@ -29,6 +31,11 @@ def setup():
     """
     engine = sa.engine_from_config(config, 'sqlalchemy.')
     init_model(engine)
+
+def canonicalize(obj_or_sha1):
+    if isinstance(obj_or_sha1, str):
+        obj_or_sha1 = GitObject.get_or_create(id=obj_or_sha1)
+    return obj_or_sha1
 
 # Join table for commit -> repositories mapping
 commits_repositories = sa.Table(
@@ -112,7 +119,7 @@ class SAMixin(object):
             return False
 
 
-class GitObject(Base, SAMixin):
+class GitObject(Base, SAMixin, common.CommonGitObjectMixin):
     """
     The base class for git objects (such as blobs, commits, etc..).
     Subclasses inherit via join table inheritance.
@@ -142,9 +149,11 @@ class Blob(GitObject, common.CommonBlobMixin):
                    primary_key=True)
 
     def add_commit(self, commit):
-        if isinstance(commit, str):
-            commit = Commit.get(commit)
-        self.commits.add(commit)
+        self.add_commits([commit])
+
+    def add_commits(self, commits):
+        commit_set = set(canonicalize(commit) for commit in commits)
+        self.commits.union(commit_set)
         self.save()
 
     @property
@@ -163,9 +172,11 @@ class Tree(GitObject, common.CommonTreeMixin):
                    primary_key=True)
 
     def add_commit(self, commit):
-        if isinstance(commit, str):
-            commit = Commit.get(commit)
-        self.commits.add(commit)
+        self.add_commits([commit])
+
+    def add_commits(self, commits):
+        commit_set = set(canonicalize(commit) for commit in commits)
+        self.commits.union(commit_set)
         self.save()
 
     @property
@@ -218,23 +229,29 @@ class Commit(GitObject, common.CommonCommitMixin):
                                                collection_class=set),
                            collection_class=set,
                            primaryjoin=(id == commits_parents.c.child_id),
-                           secondaryjoin=(commits_parents.c.parent_id == id),
+                           secondaryjoin=(id == commits_parents.c.parent_id),
                            secondary=commits_parents)
 
     def add_repository(self, remote):
         if isinstance(remote, str):
             remote = Repository.get(remote)
         self.repositories.add(remote)
+        self.save()
 
     def add_tree(self, tree):
         if isinstance(tree, str):
             tree = Tree.get_or_create(id=tree)
         self.trees.add(tree)
+        self.save()
 
     def add_parent(self, parent):
-        if isinstance(parent, str):
-            parent = Commit.get_or_create(id=parent)
-        self.parents.add(parent)
+        self.add_parents([parent])
+
+    def add_parents(self, parents):
+        logger.debug('Adding parents %s' % parents)
+        parents = set(canonicalize(p) for p in parents)
+        self.parents = self.parents.union(parents)
+        self.save()
 
     @classmethod
     def find_matching(cls, sha1s):

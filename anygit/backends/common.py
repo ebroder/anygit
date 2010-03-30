@@ -7,6 +7,11 @@ from anygit.data import exceptions
 def sha1(string):
     return hashlib.sha1(string).hexdigest()
 
+def canonicalize(obj_or_sha1):
+    if isinstance(obj_or_sha1, str):
+        obj_or_sha1 = GitObject.get_or_create(id=obj_or_sha1)
+    return obj_or_sha1
+
 class CommonMixin(object):
     """Functionality common to all backends."""
     def __new__(cls, *args, **kwargs):
