@@ -3,6 +3,7 @@ from pylons import config
 
 # Top level names to import
 __MODEL_VARS = ['setup',
+                'flush',
                 'GitObject',
                 'Blob',
                 'Tree',

@@ -14,6 +14,8 @@ Engine = None
 Base = declarative.declarative_base()
 Metadata = Base.metadata
 
+max_transaction_window = 10000
+curr_transaction_window = 0
 
 def init_model(engine):
     """Call me before using any of the tables or classes in the model."""
@@ -24,13 +26,16 @@ def init_model(engine):
     sm = orm.sessionmaker(autoflush=True, autocommit=False, bind=engine)
     Session = orm.scoped_session(sm)
 
-
 def setup():
     """
     Sets up the database session
     """
     engine = sa.engine_from_config(config, 'sqlalchemy.')
     init_model(engine)
+
+def flush():
+    logger.debug('Committing...')
+    Session.commit()
 
 def canonicalize(obj_or_sha1):
     if isinstance(obj_or_sha1, str):
@@ -110,10 +115,15 @@ class SAMixin(object):
         return Session.query(cls).all()
 
     def save(self):
+        global curr_transaction_window
         self.validate()
         if not self._errors:
             Session.add(self)
-            Session.commit()
+            if curr_transaction_window >= max_transaction_window:
+                flush()
+                curr_transaction_window = 0
+            else:
+                curr_transaction_window += 1
             return True
         else:
             return False
@@ -127,6 +137,7 @@ class GitObject(Base, SAMixin, common.CommonGitObjectMixin):
     __tablename__ = 'git_objects'
     id = sa.Column(sa.types.String(length=40), primary_key=True)
     type = sa.Column(sa.types.String(length=50))
+    complete = sa.Column(sa.types.Boolean(default=False))
 
     __mapper_args__ = {'polymorphic_on': type}
 
@@ -154,7 +165,6 @@ class Blob(GitObject, common.CommonBlobMixin):
     def add_commits(self, commits):
         commit_set = set(canonicalize(commit) for commit in commits)
         self.commits.union(commit_set)
-        self.save()
 
     @property
     def repositories(self):
@@ -177,7 +187,6 @@ class Tree(GitObject, common.CommonTreeMixin):
     def add_commits(self, commits):
         commit_set = set(canonicalize(commit) for commit in commits)
         self.commits.union(commit_set)
-        self.save()
 
     @property
     def repositories(self):
@@ -236,13 +245,11 @@ class Commit(GitObject, common.CommonCommitMixin):
         if isinstance(remote, str):
             remote = Repository.get(remote)
         self.repositories.add(remote)
-        self.save()
 
     def add_tree(self, tree):
         if isinstance(tree, str):
             tree = Tree.get_or_create(id=tree)
         self.trees.add(tree)
-        self.save()
 
     def add_parent(self, parent):
         self.add_parents([parent])
@@ -251,7 +258,10 @@ class Commit(GitObject, common.CommonCommitMixin):
         logger.debug('Adding parents %s' % parents)
         parents = set(canonicalize(p) for p in parents)
         self.parents = self.parents.union(parents)
-        self.save()
+
+    def mark_complete(self):
+        logger.debug('Markings complete: %s' % self)
+        self.complete = True
 
     @classmethod
     def find_matching(cls, sha1s):
