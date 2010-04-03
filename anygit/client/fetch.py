@@ -12,14 +12,15 @@ def fetch(repo):
     def determine_wants(refs_dict):
         # Strictly speaking, this only needs to return strings.
         logger.debug('Called determine_wants on %s' % refs_dict)
-        matching_commits = [c.id for c in models.Commit.find_matching(refs_dict.itervalues())]
-        missing_commits = set(refs_dict.itervalues()) - set(matching_commits)
+        matching_commits = [c.id for c in models.Commit.find_matching(refs_dict.itervalues())
+                            if c.complete]
+        missing_commits = set(v for k, v in refs_dict.iteritems() if '^{}' not in k) - set(matching_commits)
         return list(missing_commits)
 
-    def get_parent(sha1):
+    def get_parents(sha1):
         logger.debug('Called get parent on %s' % sha1)
         try:
-            c = models.Commit.get(sha1)
+            c = models.Commit.get_by_attributes(id=sha1, complete=True)
         except exceptions.DoesNotExist:
             return []
         else:
@@ -27,14 +28,13 @@ def fetch(repo):
 
     retrieved_data = []
     def pack_data(data):
-        logger.debug('Packing some data')
         retrieved_data.append(data)
 
-    def progress(data):
-        logger.debug('Received: %r' % data)
-            
+    def progress(progress):
+        logger.debug('Received: %r' % progress)
+
     graph_walker = object_store.ObjectStoreGraphWalker(repo.remote_heads,
-                                                       get_parent)
+                                                       get_parents)
     c = client.TCPGitClient(repo.host)
     c.fetch_pack(path=repo.path,
                  determine_wants=determine_wants,
@@ -44,7 +44,7 @@ def fetch(repo):
 
     return ''.join(retrieved_data)
 
-def _process_data(data, callback, is_path):
+def _get_objects_iterator(data, is_path):
     if is_path:
         pack_data = pack.PackData.from_path(data)
     else:
@@ -52,55 +52,68 @@ def _process_data(data, callback, is_path):
         length = len(data)
         pack_data = pack.PackData.from_file(file, length)
     uncompressed_pack = pack.Pack.from_objects(pack_data, None)
-    for obj in uncompressed_pack.iterobjects():
-        callback(obj)
+    return uncompressed_pack.iterobjects()
 
-def get_save_methods(repo):
-    def create_object(obj):
+def _process_data(repo, objects_iterator):
+    trees = []
+    commits = []
+    tags = []
+
+    logger.info('Starting object creation for %s' % repo)
+    for obj in objects_iterator:
         object_type = obj._type
         logger.debug('About to create %s %s' % (object_type, obj.id))
-        if object_type == 'commit':
-            c = models.Commit.get_or_create(id=obj.id)
+        if object_type == 'blob':
+            b = models.Blob.get_or_create(id=obj.id)
+            # Discard blobs
         elif object_type == 'tree':
             t = models.Tree.get_or_create(id=obj.id)
+            trees.append(obj)
+        elif object_type == 'commit':
+            c = models.Commit.get_or_create(id=obj.id)
+            commits.append(obj)
         elif object_type == 'tag':
             t = models.Tag.get_or_create(id=obj.id)
-        elif object_type == 'blob':
-            b = models.Blob.get_or_create(id=obj.id)
-        else:
-            raise ValueEror('Unrecognized type %s' % object_type)        
-
-    def index(obj):
-        object_type = obj._type
-        logger.debug('About to index %s %s' % (object_type, obj.id))
-        if object_type == 'commit':
-            c = models.Commit.get(id=obj.id)
-            c.add_repository(repo)
-            c.add_tree(obj.tree)
-            c.add_parents(obj.parents)
-        elif object_type == 'tree':
-            t = models.Tree.get(id=obj.id)
-            for _, _, sha1 in obj.iteritems():
-                child = models.GitObject.get(sha1)
-                child.add_commits(t.commits)
-        elif object_type == 'tag':
-            t = models.Tag.get_or_create(id=obj.id)
-            raise UnimplementedError
-        elif object_type == 'blob':
-            pass
+            tags.append(obj)
         else:
             raise ValueEror('Unrecognized type %s' % object_type)
-    return create_object, index
+
+    logger.info('Starting tree indexing for %s' % repo)
+    for tree in trees:
+        t = models.Tree.get(id=tree.id)
+        for _, _, sha1 in tree.iteritems():
+            child = models.GitObject.get(sha1)
+            child.add_commits(t.commits)
+            child.save()
+    del trees
+
+    logger.info('Starting commit indexing for %s' % repo)
+    for commit in commits:
+        c = models.Commit.get(id=commit.id)
+        c.add_repository(repo)
+        c.add_tree(commit.tree)
+        c.add_parents(commit.parents)
+
+    # TODO: might be able to del commits and go from there.
+    logger.info('Marking commits complete for %s' % repo)
+    for commit in commits:
+        c = models.Commit.get(id=commit.id)
+        c.mark_complete()
+        c.save()
+
+    logger.info('Adding tags for %s' % repo)
+    for tag in tags:
+        t = models.Tag.get_or_create(id=obj.id)
+        raise UnimplementedError
 
 def index_data(data, repo, is_path=False):
     if not data:
         logger.error('No data to index')
         return
-    create_object, index = get_save_methods(repo)
-    _process_data(data, callback=create_object, is_path=is_path)
-    _process_data(data, callback=index, is_path=is_path)
+    objects_iterator = _get_objects_iterator(data, is_path)
+    _process_data(repo, objects_iterator)
 
 def fetch_and_index(repo):
     data = fetch(repo)
     index_data(data, repo)
-
+    models.flush()
