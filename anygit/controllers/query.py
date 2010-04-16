@@ -10,9 +10,9 @@ log = logging.getLogger(__name__)
 
 class QueryController(BaseController):
     def index(self):
-        return render('/index.mako')
+        return render('/index.mako', controller='query')
 
     def query(self, id):
         c.objects = models.GitObject.lookup_by_sha1(sha1=id, partial=True)
-        return render('/query.mako')
+        return render('/query.mako', controller='query')
     q = query

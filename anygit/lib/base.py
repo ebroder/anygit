@@ -2,8 +2,9 @@
 
 Provides the BaseController class for subclassing.
 """
+import os
 from pylons.controllers import WSGIController
-from pylons.templating import render_mako as render
+from pylons.templating import render_mako
 
 from anygit.backends import database
 
@@ -18,3 +19,6 @@ class BaseController(WSGIController):
             return WSGIController.__call__(self, environ, start_response)
         finally:
             database.Session.remove()
+
+def render(path, controller):
+    return render_mako(os.path.join(controller, path))
