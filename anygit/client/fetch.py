@@ -52,33 +52,26 @@ def _get_objects_iterator(data, is_path):
         length = len(data)
         pack_data = pack.PackData.from_file(file, length)
     uncompressed_pack = pack.Pack.from_objects(pack_data, None)
-    return uncompressed_pack.iterobjects()
+    return uncompressed_pack
 
-def _process_data(repo, objects_iterator):
-    trees = []
-    commits = []
-    tags = []
-
+def _process_data(repo, uncompressed_pack):
     logger.info('Starting object creation for %s' % repo)
-    for obj in objects_iterator:
+    for obj in uncompressed_pack.iterobjects():
         object_type = obj._type
         logger.debug('About to create %s %s' % (object_type, obj.id))
         if object_type == 'blob':
             b = models.Blob.get_or_create(id=obj.id)
-            # Discard blobs
         elif object_type == 'tree':
             t = models.Tree.get_or_create(id=obj.id)
-            trees.append(obj)
         elif object_type == 'commit':
             c = models.Commit.get_or_create(id=obj.id)
-            commits.append(obj)
         elif object_type == 'tag':
             t = models.Tag.get_or_create(id=obj.id)
-            tags.append(obj)
         else:
             raise ValueEror('Unrecognized type %s' % object_type)
 
     logger.info('Starting tree indexing for %s' % repo)
+    trees = iter(o for o in uncompressed_pack.iterobjects() if o._type == 'tree')
     for tree in trees:
         t = models.Tree.get(id=tree.id)
         for _, _, sha1 in tree.iteritems():
@@ -88,6 +81,7 @@ def _process_data(repo, objects_iterator):
     del trees
 
     logger.info('Starting commit indexing for %s' % repo)
+    commits = iter(o for o in uncompressed_pack.iterobjects() if o._type == 'commit')
     for commit in commits:
         c = models.Commit.get(id=commit.id)
         c.add_repository(repo)
@@ -96,12 +90,14 @@ def _process_data(repo, objects_iterator):
 
     # TODO: might be able to del commits and go from there.
     logger.info('Marking commits complete for %s' % repo)
+    commits = iter(o for o in uncompressed_pack.iterobjects() if o._type == 'commit')
     for commit in commits:
         c = models.Commit.get(id=commit.id)
         c.mark_complete()
         c.save()
 
     logger.info('Adding tags for %s' % repo)
+    tags = iter(o for o in uncompressed_pack.iterobjects() if o._type == 'tag')
     for tag in tags:
         t = models.Tag.get_or_create(id=obj.id)
         raise UnimplementedError

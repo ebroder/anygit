@@ -296,3 +296,6 @@ class Repository(Base, SAMixin, common.CommonRepositoryMixin):
     remote_heads = orm.relation(RemoteHead,
                                 backref='repository',
                                 collection_class=set)
+
+    def __str__(self):
+        return 'Repository: %s' % self.url
