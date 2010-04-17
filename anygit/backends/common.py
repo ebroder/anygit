@@ -27,6 +27,15 @@ class CommonMixin(object):
         except exceptions.DoesNotExist:
             return cls.create(**kwargs)
 
+    @classmethod
+    def exists(cls, **kwargs):
+        try:
+            cls.get_by_attributes(**kwargs)
+        except exceptions.DoesNotExist:
+            return False
+        else:
+            return True
+
     def error(self, attr, msg):
         self._errors.setdefault(attr, []).append(msg)
 
