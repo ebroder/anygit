@@ -1,3 +1,4 @@
+import datetime
 from dulwich import client, object_store, pack
 import logging
 import StringIO
@@ -112,4 +113,5 @@ def index_data(data, repo, is_path=False):
 def fetch_and_index(repo):
     data = fetch(repo)
     index_data(data, repo)
+    repo.last_update = datetime.datetime.now()
     models.flush()

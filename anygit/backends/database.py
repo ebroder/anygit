@@ -286,6 +286,7 @@ class Repository(Base, SAMixin, common.CommonRepositoryMixin):
     __tablename__ = 'repositories'
     id = sa.Column(sa.types.String(length=40), primary_key=True)
     url = sa.Column(sa.types.String(length=255), unique=True)
+    last_index = sa.Column(sa.types.DateTime(), default='NOW')
 
     commits = orm.relation(Commit,
                            backref=orm.backref('repositories',
