@@ -19,3 +19,9 @@
 <%def name="footer()">
     Brought to you by the anyg.it team
 </%def>
+
+<%def name="form(url)">
+${webhelpers.html.secure_form.secure_form(url)}
+${caller.body()}
+${webhelpers.html.tags.end_form()}
+</%def>

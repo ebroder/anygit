@@ -8,6 +8,9 @@ from pylons.templating import render_mako
 
 from anygit.backends import database
 
+import webhelpers.html.secure_form
+import webhelpers.html.tags
+
 class BaseController(WSGIController):
 
     def __call__(self, environ, start_response):
@@ -21,4 +24,4 @@ class BaseController(WSGIController):
             database.Session.remove()
 
 def render(path, controller):
-    return render_mako(os.path.join(controller, path))
+    return render_mako(os.path.join(controller, path), extra_vars={'webhelpers' : webhelpers})
