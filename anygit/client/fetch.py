@@ -101,7 +101,8 @@ def _process_data(repo, uncompressed_pack):
     tags = iter(o for o in uncompressed_pack.iterobjects() if o._type == 'tag')
     for tag in tags:
         t = models.Tag.get_or_create(id=obj.id)
-        raise UnimplementedError
+        t.set_object(obj.get_object())
+        t.save()
 
 def index_data(data, repo, is_path=False):
     if not data:
@@ -114,4 +115,5 @@ def fetch_and_index(repo):
     data = fetch(repo)
     index_data(data, repo)
     repo.last_update = datetime.datetime.now()
+    repo.save()
     models.flush()

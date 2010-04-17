@@ -1,3 +1,4 @@
+import datetime
 import logging
 from pylons import config
 import sqlalchemy as sa
@@ -203,7 +204,15 @@ class Tag(GitObject, common.CommonTagMixin):
     id = sa.Column(sa.ForeignKey('git_objects.id'),
                    primary_key=True)
 
+    # Should upgrade this someday to point to arbitrary objects.
     commit_id = sa.Column(sa.ForeignKey('commits.id'))
+
+    def set_object(self, object):
+        object = canonicalize(object)
+        if commit.type == 'commit':
+            self.commit = object
+        else:
+            logger.error('Could not set object %s as the target of %s' % (object, self))
 
 
 class Commit(GitObject, common.CommonCommitMixin):
@@ -286,7 +295,7 @@ class Repository(Base, SAMixin, common.CommonRepositoryMixin):
     __tablename__ = 'repositories'
     id = sa.Column(sa.types.String(length=40), primary_key=True)
     url = sa.Column(sa.types.String(length=255), unique=True)
-    last_index = sa.Column(sa.types.DateTime(), default='NOW')
+    last_index = sa.Column(sa.types.DateTime())
 
     commits = orm.relation(Commit,
                            backref=orm.backref('repositories',
