@@ -13,15 +13,8 @@ class QueryController(BaseController):
         return render('index.mako', controller='query')
 
     def query(self, id):
-        def complete(obj):
-            if obj.type == 'commit':
-                return obj.complete
-            elif obj.type == 'blob':
-                return obj.commits
-            elif obj.type == 'tree':
-                return obj.commits
-            elif obj.type == 'tag':
-                return obj.commit
-        c.objects = filter(complete, models.GitObject.lookup_by_sha1(sha1=id, partial=True))
+        matching, count = models.GitObject.lookup_by_sha1(sha1=id, partial=True)
+        c.objects = matching
+        c.count = count
         return render('query.mako', controller='query')
     q = query
