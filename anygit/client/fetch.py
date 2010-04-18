@@ -45,7 +45,7 @@ def fetch(repo):
         destfile.write(data)
 
     def progress(progress):
-        logger.debug('Received: %r' % progress)
+        pass
 
     graph_walker = object_store.ObjectStoreGraphWalker(repo.remote_heads,
                                                        get_parents)
@@ -72,7 +72,6 @@ def _process_data(repo, uncompressed_pack):
     logger.info('Starting object creation for %s' % repo)
     for obj in uncompressed_pack.iterobjects():
         object_type = obj._type
-        logger.debug('About to create %s %s' % (object_type, obj.id))
         if object_type == 'blob':
             b = models.Blob.get_or_create(id=obj.id)
         elif object_type == 'tree':
@@ -165,7 +164,7 @@ def fetch_and_index(repo):
 
 def index_all(last_index=None, parallel=True):
     repos = models.Repository.get_indexed_before(last_index)
-    logger.info('About to index the following repos: %s' % ', '.join([str(r) for r in repos]))
+    logger.info('About to index %d repos' % len(repos))
     if parallel:
         repo_ids = [r.id for r in repos]
         pool = multiprocessing.Pool(5, initializer=models.setup)
