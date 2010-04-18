@@ -25,7 +25,10 @@ class CommonMixin(object):
         try:
             return cls.get_by_attributes(**kwargs)
         except exceptions.DoesNotExist:
-            return cls.create(**kwargs)
+            obj = cls.create(**kwargs)
+            # Hack because sqlalchemy doesn't initially set the object type
+            obj.type = cls.__name__.lower()
+            return obj
 
     @classmethod
     def exists(cls, **kwargs):
