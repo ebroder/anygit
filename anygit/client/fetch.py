@@ -155,7 +155,7 @@ def index_all(last_index=None, parallel=True):
     logger.info('About to index the following repos: %s' % ', '.join([str(r) for r in repos]))
     if parallel:
         repo_ids = [r.id for r in repos]
-        pool = multiprocessing.Pool(1, initializer=models.setup)
+        pool = multiprocessing.Pool(5, initializer=models.setup)
         pool.map(fetch_and_index, repo_ids)
     else:
         [fetch_and_index(repo) for repo in repos]
