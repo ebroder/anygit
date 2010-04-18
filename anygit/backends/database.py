@@ -76,6 +76,29 @@ trees_commits = sa.Table(
               sa.ForeignKey('commits.id'),
               primary_key=True))
 
+# Join table for tree -> subtrees mapping
+trees_trees = sa.Table(
+    'trees_trees',
+    Base.metadata,
+    sa.Column('parent_id',
+              sa.ForeignKey('trees.id'),
+              primary_key=True),
+    sa.Column('subtree_id',
+              sa.ForeignKey('trees.id'),
+              primary_key=True))
+
+# Join table for tree -> blobs mapping
+trees_blobs = sa.Table(
+    'trees_blobs',
+    Base.metadata,
+    sa.Column('tree_id',
+              sa.ForeignKey('trees.id'),
+              primary_key=True),
+    sa.Column('blob_id',
+              sa.ForeignKey('blobs.id'),
+              primary_key=True))
+
+
 # Join table for commit -> parents mapping
 commits_parents = sa.Table(
     'commits_parents',
@@ -141,16 +164,21 @@ class GitObject(Base, SAMixin, common.CommonGitObjectMixin):
     __tablename__ = 'git_objects'
     id = sa.Column(sa.types.String(length=40), primary_key=True)
     type = sa.Column(sa.types.String(length=50))
-    complete = sa.Column(sa.types.Boolean(default=False))
+    complete = sa.Column(sa.types.Boolean(default=False), index=True, default=False)
 
     __mapper_args__ = {'polymorphic_on': type}
 
     @classmethod
-    def lookup_by_sha1(cls, sha1, partial=False):
+    def lookup_by_sha1(cls, sha1, partial=False, offset=0, limit=10):
         if partial:
-            return Session.query(cls).filter(cls.id.startswith(sha1))
+            q = Session.query(cls).filter(cls.id.startswith(sha1)).filter(cls.complete == True)
+            return (q[offset:limit], q.count())
         else:
-            return Session.query(cls).filter(cls.id == sha1)
+            q = Session.query(cls).filter(cls.id == sha1).filter(cls.complete == True)
+            return (q[offset:limit], q.count())
+
+    def mark_complete(self):
+        self.complete = True
 
 
 class Blob(GitObject, common.CommonBlobMixin):
@@ -163,12 +191,8 @@ class Blob(GitObject, common.CommonBlobMixin):
     id = sa.Column(sa.ForeignKey('git_objects.id'),
                    primary_key=True)
 
-    def add_commit(self, commit):
-        self.add_commits([commit])
-
-    def add_commits(self, commits):
-        commit_set = set(canonicalize(commit) for commit in commits)
-        self.commits.union(commit_set)
+    def add_parent(self, parent):
+        self.parents.add(parent)
 
     @property
     def repositories(self):
@@ -184,13 +208,26 @@ class Tree(GitObject, common.CommonTreeMixin):
     __mapper_args__ = {'polymorphic_identity': 'tree'}
     id = sa.Column(sa.ForeignKey('git_objects.id'),
                    primary_key=True)
+    subtrees = orm.relation('Tree',
+                            backref=orm.backref('parents',
+                                                collection_class=set),
+                            primaryjoin=(id == trees_trees.c.parent_id),
+                            secondaryjoin=(id == trees_trees.c.subtree_id),
+                            secondary=trees_trees,
+                            collection_class=set)
+    blobs = orm.relation(Blob,
+                         backref=orm.backref('parents',
+                                             collection_class=set,
+                                             foreign_keys=[trees_blobs.c.tree_id,
+                                                           trees_blobs.c.blob_id]),
+                         primaryjoin=(id == trees_blobs.c.tree_id),
+                         secondaryjoin=(Blob.id == trees_blobs.c.blob_id),
+                         secondary=trees_blobs,
+                         foreign_keys=[trees_blobs.c.tree_id, trees_blobs.c.blob_id],
+                         collection_class=set)
 
-    def add_commit(self, commit):
-        self.add_commits([commit])
-
-    def add_commits(self, commits):
-        commit_set = set(canonicalize(commit) for commit in commits)
-        self.commits.union(commit_set)
+    def add_parent(self, parent):
+        self.parents.add(parent)
 
     @property
     def repositories(self):
@@ -253,15 +290,33 @@ class Commit(GitObject, common.CommonCommitMixin):
                            secondaryjoin=(id == commits_parents.c.parent_id),
                            secondary=commits_parents)
 
-    def add_repository(self, remote):
+    def add_repository(self, remote, recursive=False):
         if isinstance(remote, str):
             remote = Repository.get(remote)
-        self.repositories.add(remote)
+        if remote not in self.repositories:
+            self.repositories.add(remote)
+            if recursive:
+                logger.debug('Recursively adding %s to %s' % (remote, self, recursive))
+                for parent in self.parents:
+                    parent.add_repository(remote, recursive=True)
 
-    def add_tree(self, tree):
+    def add_tree(self, tree, recursive=True):
         if isinstance(tree, str):
             tree = Tree.get_or_create(id=tree)
-        self.trees.add(tree)
+        # Assumes the invariant that if we have added a tree before,
+        # we have added all of its children as well
+        if tree not in self.trees:
+            self.trees.add(tree)
+            if recursive:
+                for subtree in tree.subtrees:
+                    self.add_tree(subtree, recursive=True)
+                for blob in tree.blobs:
+                    self.add_blob(blob)
+
+    def add_blob(self, blob):
+        if isinstance(blob, str):
+            blob = Blob.get_or_create(id=blob)
+        self.blobs.add(blob)
 
     def add_parent(self, parent):
         self.add_parents([parent])
@@ -270,10 +325,6 @@ class Commit(GitObject, common.CommonCommitMixin):
         logger.debug('Adding parents %s' % parents)
         parents = set(canonicalize(p) for p in parents)
         self.parents = self.parents.union(parents)
-
-    def mark_complete(self):
-        logger.debug('Markings complete: %s' % self)
-        self.complete = True
 
     @classmethod
     def find_matching(cls, sha1s):

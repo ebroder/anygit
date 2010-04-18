@@ -3,6 +3,7 @@ from dulwich import client, object_store, pack
 import logging
 import os
 import tempfile
+import traceback
 
 from anygit import models
 from anygit.data import exceptions
@@ -18,10 +19,15 @@ def fetch(repo):
     logger.info('Fetching from %s' % repo)
     def determine_wants(refs_dict):
         # Strictly speaking, this only needs to return strings.
-        logger.debug('Called determine_wants on %s' % refs_dict)
-        matching_commits = [c.id for c in models.Commit.find_matching(refs_dict.itervalues())
-                            if c.complete]
-        missing_commits = set(v for k, v in refs_dict.iteritems() if '^{}' not in k) - set(matching_commits)
+        logger.debug('Called determine_wants for %s' % repo)
+        matching_commits = set(c.id for c in models.Commit.find_matching(refs_dict.itervalues())
+                               if c.complete)
+        remote_heads = set(v for k, v in refs_dict.iteritems() if '^{}' not in k)
+        missing_commits = remote_heads - matching_commits
+        # The commits we already have
+        present_commits = remote_heads.intersection(matching_commits)
+        for commit in models.Commit.find_matching(present_commits):
+            commit.add_repository(repo, recursive=True)
         return list(missing_commits)
 
     def get_parents(sha1):
@@ -78,31 +84,35 @@ def _process_data(repo, uncompressed_pack):
         else:
             raise ValueEror('Unrecognized type %s' % object_type)
 
-    logger.info('Starting tree indexing for %s' % repo)
+    logger.info('Setting tree children for %s' % repo)
     trees = iter(o for o in uncompressed_pack.iterobjects() if o._type == 'tree')
     for tree in trees:
         t = models.Tree.get(id=tree.id)
         for _, _, sha1 in tree.iteritems():
-            child = models.GitObject.get(sha1)
-            child.add_commits(t.commits)
-            child.save()
-    del trees
+            try:
+                child = models.GitObject.get(sha1)
+            except exceptions.DoesNotExist:
+                logger.error('Could not find child %s of %s' % (sha1, t.id))
+            else:
+                if child.type == 'tree' or child.type == 'blob':
+                    child.add_parent(t)
+                    child.save()
 
     logger.info('Starting commit indexing for %s' % repo)
     commits = iter(o for o in uncompressed_pack.iterobjects() if o._type == 'commit')
     for commit in commits:
         c = models.Commit.get(id=commit.id)
-        c.add_repository(repo)
-        c.add_tree(commit.tree)
+        c.add_repository(repo, recursive=False)
+        c.add_tree(commit.tree, recursive=True)
         c.add_parents(commit.parents)
 
     # TODO: might be able to del commits and go from there.
-    logger.info('Marking commits complete for %s' % repo)
-    commits = iter(o for o in uncompressed_pack.iterobjects() if o._type == 'commit')
-    for commit in commits:
-        c = models.Commit.get(id=commit.id)
-        c.mark_complete()
-        c.save()
+    logger.info('Marking objects complete for %s' % repo)
+    objects = iter(o for o in uncompressed_pack.iterobjects())
+    for object in objects:
+        o = models.GitObject.get(id=object.id)
+        o.mark_complete()
+        o.save()
 
     logger.info('Adding tags for %s' % repo)
     tags = iter(o for o in uncompressed_pack.iterobjects() if o._type == 'tag')
@@ -143,7 +153,10 @@ def fetch_and_index(repo):
         models.flush()
         data_path = fetch(repo)
         index_data(data_path, repo, is_path=True)
-        repo.last_update = now
+        repo.last_index = now
+        repo.save()
+    except Exception, e:
+        logger.error('Had a problem: %s' % traceback.format_exc())
     finally:
         repo.indexing = False
         repo.save()
