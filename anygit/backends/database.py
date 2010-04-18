@@ -115,6 +115,9 @@ class SAMixin(object):
     def all(cls):
         return Session.query(cls).all()
 
+    def refresh(self):
+        return Session.refresh(self)
+
     def save(self):
         global curr_transaction_window
         self.validate()
@@ -296,6 +299,7 @@ class Repository(Base, SAMixin, common.CommonRepositoryMixin):
     id = sa.Column(sa.types.String(length=40), primary_key=True)
     url = sa.Column(sa.types.String(length=255), unique=True)
     last_index = sa.Column(sa.types.DateTime())
+    indexing = sa.Column(sa.types.Boolean(), default=False)
 
     commits = orm.relation(Commit,
                            backref=orm.backref('repositories',
@@ -306,6 +310,15 @@ class Repository(Base, SAMixin, common.CommonRepositoryMixin):
     remote_heads = orm.relation(RemoteHead,
                                 backref='repository',
                                 collection_class=set)
+
+    @classmethod
+    def get_indexed_before(cls, date):
+        """Get all repos indexed before the given date and not currently
+        being indexed."""
+        if date is not None:
+            return Session.query(cls).filter(cls.last_index >= date).filter(cls.indexing == False).all()
+        else:
+            return Session.query(cls).filter(cls.indexing == False).all()
 
     def __str__(self):
         return 'Repository: %s' % self.url

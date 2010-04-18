@@ -1,10 +1,16 @@
 import datetime
 from dulwich import client, object_store, pack
 import logging
-import StringIO
+import os
+import tempfile
 
 from anygit import models
 from anygit.data import exceptions
+
+try:
+    import multiprocessing
+except ImportError:
+    import processing as multiprocessing
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +25,6 @@ def fetch(repo):
         return list(missing_commits)
 
     def get_parents(sha1):
-        logger.debug('Called get parent on %s' % sha1)
         try:
             c = models.Commit.get_by_attributes(id=sha1, complete=True)
         except exceptions.DoesNotExist:
@@ -27,9 +32,11 @@ def fetch(repo):
         else:
             return [p.id for p in c.parents]
 
-    retrieved_data = []
+    destfd, destfile_name = tempfile.mkstemp()
+    destfile = os.fdopen(destfd, 'w')
+    logger.debug('Writing to %s' % destfile_name)
     def pack_data(data):
-        retrieved_data.append(data)
+        destfile.write(data)
 
     def progress(progress):
         logger.debug('Received: %r' % progress)
@@ -42,8 +49,8 @@ def fetch(repo):
                  graph_walker=graph_walker,
                  pack_data=pack_data,
                  progress=progress)
-
-    return ''.join(retrieved_data)
+    destfile.close()
+    return destfile_name
 
 def _get_objects_iterator(data, is_path):
     if is_path:
@@ -105,15 +112,50 @@ def _process_data(repo, uncompressed_pack):
         t.save()
 
 def index_data(data, repo, is_path=False):
-    if not data:
+    if is_path:
+        empty = not os.path.getsize(data)
+    else:
+        empty = data
+
+    if empty:
         logger.error('No data to index')
         return
     objects_iterator = _get_objects_iterator(data, is_path)
     _process_data(repo, objects_iterator)
 
 def fetch_and_index(repo):
-    data = fetch(repo)
-    index_data(data, repo)
-    repo.last_update = datetime.datetime.now()
-    repo.save()
-    models.flush()
+    if isinstance(repo, str):
+        repo = models.Repository.get(repo)
+    repo.refresh()
+    # There's a race condition here where two indexing processes might
+    # try to index the same repo.  However, since it's idempotent,
+    # this is not harmful beyond wasting resources.  However, we check
+    # here to try to minimize the damage.
+    if repo.indexing:
+        logger.error('Repo is already being indexed')
+        return
+    logger.info('Beginning to index: %s' % repo)
+    now = datetime.datetime.now()
+    try:
+        # Don't let other people try to index in parallel
+        repo.indexing = True
+        repo.save()
+        models.flush()
+        data_path = fetch(repo)
+        index_data(data_path, repo, is_path=True)
+        repo.last_update = now
+    finally:
+        repo.indexing = False
+        repo.save()
+        models.flush()
+    logger.info('Done with %s' % repo)
+
+def index_all(last_index=None, parallel=True):
+    repos = models.Repository.get_indexed_before(last_index)
+    logger.info('About to index the following repos: %s' % ', '.join([str(r) for r in repos]))
+    if parallel:
+        repo_ids = [r.id for r in repos]
+        pool = multiprocessing.Pool(1, initializer=models.setup)
+        pool.map(fetch_and_index, repo_ids)
+    else:
+        [fetch_and_index(repo) for repo in repos]
