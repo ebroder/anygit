@@ -18,6 +18,9 @@ Metadata = Base.metadata
 max_transaction_window = 10000
 curr_transaction_window = 0
 
+def create_schema():
+    Metadata.create_all(bind=Engine)
+
 def init_model(engine):
     """Call me before using any of the tables or classes in the model."""
     global Session, Engine

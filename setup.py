@@ -25,6 +25,7 @@ setup(
     anygit = anygit.command:AnygitCommand
 
     [anygit.backend]
-    database = anygit.backends.database
+    mysql = anygit.backends.mysql
+    mongodb = anygit.backends.mongodb
     """,
 )

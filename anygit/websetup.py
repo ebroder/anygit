@@ -2,7 +2,7 @@
 import logging
 
 from anygit.config.environment import load_environment
-from anygit.backends import database
+from anygit import models
 
 log = logging.getLogger(__name__)
 
@@ -11,4 +11,4 @@ def setup_app(command, conf, vars):
     load_environment(conf.global_conf, conf.local_conf)
 
     # Create the tables if they don't already exist
-    database.Metadata.create_all(bind=database.Engine)
+    models.create_schema()

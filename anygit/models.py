@@ -2,7 +2,8 @@ import pkg_resources
 from pylons import config
 
 # Top level names to import
-__MODEL_VARS = ['setup',
+__MODEL_VARS = ['create_schema',
+                'setup',
                 'flush',
                 'GitObject',
                 'Blob',
@@ -13,7 +14,7 @@ __MODEL_VARS = ['setup',
 
 # Get the first (and only) entry point, and extract the given
 # names into our namespace.
-__BACKEND_NAME = config.get('backend', 'database')
+__BACKEND_NAME = config.get('backend', 'mongodb')
 __BACKEND_EP = pkg_resources.iter_entry_points('anygit.backend', __BACKEND_NAME).next()
 __BACKEND = __BACKEND_EP.load()
 
