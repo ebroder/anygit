@@ -247,12 +247,12 @@ class Tag(GitObject, common.CommonTagMixin):
     # Should upgrade this someday to point to arbitrary objects.
     commit_id = sa.Column(sa.ForeignKey('commits.id'))
 
-    def set_object(self, object):
-        object = canonicalize(object)
-        if commit.type == 'commit':
-            self.commit = object
+    def set_object(self, o):
+        o = canonicalize(o)
+        if o.type == 'commit':
+            self.commit = o
         else:
-            logger.error('Could not set object %s as the target of %s' % (object, self))
+            logger.error('Could not set object %s as the target of %s' % (o, self))
 
 
 class Commit(GitObject, common.CommonCommitMixin):
