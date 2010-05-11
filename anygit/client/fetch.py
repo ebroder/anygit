@@ -109,15 +109,19 @@ def _process_data(repo, uncompressed_pack):
     logger.info('Marking objects complete for %s' % repo)
     objects = iter(o for o in uncompressed_pack.iterobjects())
     for object in objects:
-        o = models.GitObject.get(id=object.id)
-        o.mark_complete()
-        o.save()
+        try:
+            o = models.GitObject.get(id=object.id)
+        except exceptions.DoesNotExist:
+            logger.error('Could not find object %s!' % object.id)
+        else:
+            o.mark_complete()
+            o.save()
 
     logger.info('Adding tags for %s' % repo)
     tags = iter(o for o in uncompressed_pack.iterobjects() if o._type == 'tag')
     for tag in tags:
-        t = models.Tag.get_or_create(id=obj.id)
-        t.set_object(obj.get_object())
+        t = models.Tag.get_or_create(id=tag.id)
+        t.set_object(tag.get_object())
         t.save()
 
 def index_data(data, repo, is_path=False):
