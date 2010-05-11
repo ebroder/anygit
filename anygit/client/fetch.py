@@ -166,12 +166,16 @@ def fetch_and_index(repo):
         models.flush()
     logger.info('Done with %s' % repo)
 
+def fetch_and_index_threaded(repo):
+    models.setup()
+    return fetch_and_index(repo)
+
 def index_all(last_index=None, parallel=True):
     repos = models.Repository.get_indexed_before(last_index)
     logger.info('About to index %d repos' % len(repos))
     if parallel:
         repo_ids = [r.id for r in repos]
-        pool = multiprocessing.Pool(5, initializer=models.setup)
-        pool.map(fetch_and_index, repo_ids)
+        pool = multiprocessing.Pool(5)
+        pool.map(fetch_and_index_threaded, repo_ids)
     else:
         [fetch_and_index(repo) for repo in repos]

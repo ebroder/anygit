@@ -31,7 +31,7 @@ def setup():
     """
     Sets up the database session
     """
-    engine = sa.engine_from_config(config, 'sqlalchemy.')
+    engine = sa.engine_from_config(config, 'sqlalchemy.', pool_recycle=60)
     init_model(engine)
 
 def flush():
