@@ -1,3 +1,4 @@
+import datetime
 import logging
 from pylons import config
 import pymongo
@@ -67,8 +68,8 @@ def flush():
 
 def classify(string):
     """Convert a class name to the corresponding class"""
-    # 'repository' : Repository,
-    mapping = {'blob' : Blob,
+    mapping = {'repository' : Repository,
+               'blob' : Blob,
                'tree' : Tree,
                'commit' : Commit}
     try:
@@ -111,6 +112,7 @@ class MongoDbModel(object):
     # Should provide these in subclasses
     _object_store = None
     _save_list = None
+    batched = True
 
     # Attributes: id, type
 
@@ -131,6 +133,10 @@ class MongoDbModel(object):
             setattr(self, attr, set())
         elif not isinstance(getattr(self, attr), set):
             setattr(self, attr, set(getattr(self, attr)))
+
+    def _attributify(self, attr, default=None):
+        if not hasattr(self, attr):
+            setattr(self, attr, default)
 
     def _add_all_to_set(self, set_name, values):
         # TODO: to get the *right* semantics, should have a committed updates
@@ -196,12 +202,15 @@ class MongoDbModel(object):
         global curr_transaction_window
         self.validate()
         if not self._errors:
-            self._save_list.add(self)
-            if curr_transaction_window >= max_transaction_window:
-                flush()
-                curr_transaction_window = 0
+            if self.batched:
+                self._save_list.add(self)
+                if curr_transaction_window >= max_transaction_window:
+                    flush()
+                    curr_transaction_window = 0
+                else:
+                    curr_transaction_window += 1
             else:
-                curr_transaction_window += 1
+                self._object_store.update(self, upsert=True)
             return True
         else:
             return False
@@ -225,6 +234,11 @@ class MongoDbModel(object):
         instance.new = False
         return instance
 
+    @classmethod
+    def find_matching(cls, ids):
+        """Given a list of ids, find the matching objects"""
+        return cls._object_store.find({'_id' : { '$in' : ids }})
+
     def __str__(self):
         return '%s: %s' % (self.type, self.id)
 
@@ -245,8 +259,7 @@ class GitObject(MongoDbModel, common.CommonGitObjectMixin):
 
     def _init_from_dict(self, dict):
         super(GitObject, self)._init_from_dict(dict)
-        if not hasattr(self, 'complete'):
-            self.complete = False
+        self._attributify('complete')
 
     def mongofy(self, mongo_object):
         super(GitObject, self).mongofy(mongo_object)
@@ -276,23 +289,35 @@ class Blob(GitObject, common.CommonBlobMixin):
     def _init_from_dict(self, dict):
         super(Blob, self)._init_from_dict(dict)
         self._setify('parent_ids')
+        self._attributify('commit_id')
 
     def mongofy(self, mongo_object=None):
         if mongo_object is None:
             mongo_object = {}
         super(Blob, self).mongofy(mongo_object)
+        mongo_object['commit_id'] = self.commit_id
         mongo_object['parent_ids'] = list(self.parent_ids)
         return mongo_object
 
     def add_parent(self, parent_id):
         parent_id = canonicalize_to_id(parent_id)
         self._add_to_set('parent_ids', parent_id)
-        Tree.get(id=parent_id).add_blob(self)
+        t = Tree.get(id=parent_id)
+        t.add_blob(self)
+        t.save()
+
+    def set_commit(self, commit_id):
+        commit_id = canonicalize_to_id(commit_id)
+        self._set('commit_id', commit_id)
+
+    @property
+    def commits(self):
+        return Commit.find_matching(self.commit_ids)
 
     @property
     def repositories(self):
-        raise NotImplementedError()
-        # return Session.query(Repository).join('commits', 'blobs').filter(Blob.id==self.id)
+        repository_ids = set(commit.repository_id for commit in commits)
+        return Repository.find_matching(self.repository_ids)
 
 
 class Tree(GitObject, common.CommonTreeMixin):
@@ -302,6 +327,7 @@ class Tree(GitObject, common.CommonTreeMixin):
 
     def _init_from_dict(self, dict):
         super(Tree, self)._init_from_dict(dict)
+        self._attributify('commit_id')
         self._setify('subtree_ids')
         self._setify('blob_ids')
         self._setify('parent_ids')
@@ -319,12 +345,19 @@ class Tree(GitObject, common.CommonTreeMixin):
         about this tree."""
         parent_id = canonicalize_to_id(parent_id)
         self._add_to_set('parent_ids', parent_id)
-        Tree.get(id=parent_id).add_subtree(self)
+        t = Tree.get(id=parent_id)
+        t.add_subtree(self)
+        t.save()
+
+    def set_commit(self, commit_id):
+        commit_id = canonicalize_to_id(commit_id)
+        self._set('commit_id', commit_id)
 
     def mongofy(self, mongo_object=None):
         if mongo_object is None:
             mongo_object = {}
         super(Tree, self).mongofy(mongo_object)
+        mongo_object['commit_id'] = self.commit_id
         mongo_object['subtree_ids'] = list(self.subtree_ids)
         mongo_object['blob_ids'] = list(self.blob_ids)
         mongo_object['parent_ids'] = list(self.parent_ids)
@@ -332,7 +365,8 @@ class Tree(GitObject, common.CommonTreeMixin):
 
     @property
     def repositories(self):
-        raise NotImplementedError()
+        repository_ids = set(commit.repository_id for commit in commits)
+        return Repository.find_matching(self.repository_ids)
 
 
 class Tag(GitObject, common.CommonTagMixin):
@@ -343,8 +377,7 @@ class Tag(GitObject, common.CommonTagMixin):
 
     def _init_from_dict(self, dict):
         super(Tree, self)._init_from_dict(dict)
-        if not hasattr(self, 'commit_id'):
-            self.commit_id = None
+        self._attributify('commit_id')
 
     def mongofy(self, mongo_object=None):
         if mongo_object is None:
@@ -354,9 +387,9 @@ class Tag(GitObject, common.CommonTagMixin):
         return mongo_object
 
     def set_object(self, o):
-        o = canonicalize_to_object(o)
+        o_id, o = canonicalize_to_object(o)
         if o.type == 'commit':
-            self.commit = o
+            self.commit_id = o_id
         else:
             logger.error('Could not set object %s as the target of %s' % (o, self))
 
@@ -371,16 +404,20 @@ class Commit(GitObject, common.CommonCommitMixin):
         self._setify('tree_ids')
         self._setify('blob_ids')
         self._setify('parent_ids')
+        self._setify('repository_ids')
 
     def add_repository(self, remote, recursive=False):        
-        raise NotImplementedError()
+        self._add_to_set('repository_ids')
 
     def add_tree(self, tree_id, recursive=True):
         tree_id, tree = canonicalize_to_git_object(tree_id)
         # Assumes the invariant that if we have added a tree before,
         # we have added all of its children as well
-        if tree not in self.trees:
+        if tree_id not in self.tree_ids:
             self._add_to_set('tree_ids', tree_id)
+            t = Tree.get(id=tree_id)
+            t.set_commit(tree_id)
+            t.save()
             if recursive:
                 for subtree_id in tree.subtree_ids:
                     self.add_tree(subtree_id, recursive=True)
@@ -388,8 +425,10 @@ class Commit(GitObject, common.CommonCommitMixin):
                     self.add_blob(blob_id)
 
     def add_blob(self, blob_id):
-        blob_id = canonicalize_to_id(blob_id)
+        blob_id, blob = canonicalize_to_object(blob_id)
         self._add_to_set('blob_ids', blob_id)
+        blob.set_commit(self)
+        blob.save()
 
     def add_parent(self, parent):
         self.add_parents([parent])
@@ -408,51 +447,26 @@ class Commit(GitObject, common.CommonCommitMixin):
         mongo_object['parent_ids'] = list(self.parent_ids)
         return mongo_object
 
+
+class Repository(MongoDbModel, common.CommonRepositoryMixin):
+    """A git repository.  Contains many commits."""
+    # Attributes: url, last_index, indexing, commit_ids
+    batched = False
+
+    def _init_from_dict(self, dict):
+        self._attributify('url')
+        self._attributify('last_index', datetime.datetime(1970,1,1))
+        self._attributify('indexing')
+        self._setify('commit_ids')
+
     @classmethod
-    def find_matching(cls, sha1s):
-        """Given a list of sha1s, find the matching commit objects"""
-        return cls._object_store.find({'_id' : { '$in' : sha1s }})
+    def get_indexed_before(cls, date):
+        """Get all repos indexed before the given date and not currently
+        being indexed."""
+        if date is not None:
+            return cls._object_store.find({'last_index' : {'$lt' : date}, 'indexing' : False})
+        else:
+            return cls._object_store.find({'indexing' : False})
 
-
-# class RemoteHead(Base, SAMixin, common.CommonRemoteHeadMixin):
-#     __tablename__ = 'remote_heads'
-#     repo_id = sa.Column(sa.ForeignKey('repositories.id'),
-#                         primary_key=True)
-#     ref_id = sa.Column(sa.types.String(length=255), primary_key=True)
-#     commit_id =  sa.Column(sa.ForeignKey('commits.id'))
-#     commit = orm.relation(Commit,
-#                           collection_class=set)
-
-# class Repository(Base, SAMixin, common.CommonRepositoryMixin):
-#     """
-#     A git repository, corresponding to a remote in the-one-repo.git.
-#     Contains many commits.
-#     """
-#     __tablename__ = 'repositories'
-#     id = sa.Column(sa.types.String(length=40), primary_key=True)
-#     url = sa.Column(sa.types.String(length=255), unique=True)
-#     last_index = sa.Column(sa.types.DateTime())
-#     indexing = sa.Column(sa.types.Boolean(), default=False)
-
-#     commits = orm.relation(Commit,
-#                            backref=orm.backref('repositories',
-#                                                collection_class=set),
-#                            collection_class=set,
-#                            secondary=commits_repositories)
-
-#     remote_heads = orm.relation(RemoteHead,
-#                                 backref='repository',
-#                                 collection_class=set)
-
-#     @classmethod
-#     def get_indexed_before(cls, date):
-#         """Get all repos indexed before the given date and not currently
-#         being indexed."""
-#         if date is not None:
-#             return Session.query(cls).filter(cls.last_index >= date).filter(cls.indexing == False).all()
-#         else:
-#             return Session.query(cls).filter(cls.indexing == False).all()
-
-#     def __str__(self):
-#         return 'Repository: %s' % self.url
-
+    def __str__(self):
+        return 'Repository: %s' % self.url
