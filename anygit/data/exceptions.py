@@ -6,3 +6,6 @@ class DoesNotExist(Error):
 
 class NotUnique(Error):
     pass
+
+class ValidationError(Error):
+    pass
