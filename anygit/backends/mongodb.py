@@ -88,20 +88,22 @@ def classify(string):
     except KeyError:
         raise ValueError('No matching class found for %s' % string)
 
-def canonicalize_to_id(git_object):
-    if isinstance(git_object, GitObject):
-        return git_object.id
-    elif isinstance(git_object, str):
-        return git_object
+def canonicalize_to_id(db_object):
+    if isinstance(db_object, MongoDbModel):
+        return db_object.id
+    elif isinstance(db_object, str) or isinstance(db_object, unicode):
+        return db_object
     else:
-        raise exceptions.Error('Illegal type %s' % git_object)
+        raise exceptions.Error('Illegal type %s (instance %r)' % (type(db_object), db_object))
 
 def canonicalize_to_git_object(id):
-    if isinstance(sha1, str):
+    if isinstance(id, str) or isinstance(id, unicode):
         obj = GitObject.get(id=id)
-    else:
+    elif isinstance(id, GitObject):
         obj = id
         id = obj.id
+    else:
+        raise exceptions.Error('Illegal type %s (instance %r)' % (type(id), id))
     return id, obj
 
 ## Classes
@@ -289,7 +291,8 @@ class GitObject(MongoDbModel, common.CommonGitObjectMixin):
         else:
             results = cls._object_store.find({'_id' : sha1,
                                               'complete' : True})
-        return results.skip(offset).limit(limit)
+        count = results.count()
+        return results.skip(offset).limit(limit), count
 
     def mark_complete(self):
         self.complete = True
@@ -401,7 +404,7 @@ class Tag(GitObject, common.CommonTagMixin):
         return mongo_object
 
     def set_object(self, o):
-        o_id, o = canonicalize_to_object(o)
+        o_id, o = canonicalize_to_git_object(o)
         if o.type == 'commit':
             self.commit_id = o_id
         else:
@@ -420,8 +423,9 @@ class Commit(GitObject, common.CommonCommitMixin):
         self._setify('parent_ids')
         self._setify('repository_ids')
 
-    def add_repository(self, remote, recursive=False):        
-        self._add_to_set('repository_ids')
+    def add_repository(self, remote_id, recursive=False):
+        remote_id = canonicalize_to_id(remote_id)
+        self._add_to_set('repository_ids', remote_id)
 
     def add_tree(self, tree_id, recursive=True):
         tree_id, tree = canonicalize_to_git_object(tree_id)
@@ -439,7 +443,7 @@ class Commit(GitObject, common.CommonCommitMixin):
                     self.add_blob(blob_id)
 
     def add_blob(self, blob_id):
-        blob_id, blob = canonicalize_to_object(blob_id)
+        blob_id, blob = canonicalize_to_git_object(blob_id)
         self._add_to_set('blob_ids', blob_id)
         blob.set_commit(self)
         blob.save()
@@ -448,7 +452,7 @@ class Commit(GitObject, common.CommonCommitMixin):
         self.add_parents([parent])
 
     def add_parents(self, parent_ids):
-        logger.debug('Adding parents %s' % parents)
+        logger.debug('Adding parents %s' % parent_ids)
         parent_ids = set(canonicalize_to_id(p) for p in parent_ids)
         self._add_all_to_set('parent_ids', parent_ids)
 
@@ -461,6 +465,9 @@ class Commit(GitObject, common.CommonCommitMixin):
         mongo_object['parent_ids'] = list(self.parent_ids)
         return mongo_object
 
+    @property
+    def repositories(self):
+        return Repository.find_matching(self.repository_ids)
 
 class Repository(MongoDbModel, common.CommonRepositoryMixin):
     """A git repository.  Contains many commits."""
