@@ -41,6 +41,9 @@ def flush():
     logger.debug('Committing...')
     Session.commit()
 
+def destroy_session():
+    database.Session.remove()
+
 def canonicalize(obj_or_sha1):
     if isinstance(obj_or_sha1, str):
         obj_or_sha1 = GitObject.get_or_create(id=obj_or_sha1)

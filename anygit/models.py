@@ -5,6 +5,7 @@ from pylons import config
 __MODEL_VARS = ['create_schema',
                 'setup',
                 'flush',
+                'destroy_session',
                 'GitObject',
                 'Blob',
                 'Tree',

@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 max_transaction_window = 10000
 curr_transaction_window = 0
 
+connection = None
+
 ## Exported functions
 
 def create_schema():
@@ -39,6 +41,7 @@ def setup():
     """
     Sets up the database session
     """
+    global connection
     connection = pymongo.Connection(config['mongodb.url'],
                                     config.get('mongodb.port', None))
     init_model(connection)
@@ -68,8 +71,10 @@ def flush():
                                        instance._pending_updates)
             instance._pending_updates.clear()
             
+def destroy_session():
+    if connection is not None:
+        connection.disconnect()
 
-        
 ## Internal functions
 
 def classify(string):

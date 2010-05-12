@@ -6,7 +6,7 @@ import os
 from pylons.controllers import WSGIController
 from pylons.templating import render_mako
 
-from anygit.backends import database
+from anygit import models
 
 import webhelpers.html.secure_form
 import webhelpers.html.tags
@@ -21,7 +21,7 @@ class BaseController(WSGIController):
         try:
             return WSGIController.__call__(self, environ, start_response)
         finally:
-            database.Session.remove()
+            models.destroy_session()
 
 def render(path, controller):
     return render_mako(os.path.join(controller, path), extra_vars={'webhelpers' : webhelpers})
