@@ -210,7 +210,7 @@ class MongoDbModel(object):
                 else:
                     curr_transaction_window += 1
             else:
-                self._object_store.update(self, upsert=True)
+                self._object_store.update({'_id' : self.id}, self.mongofy(), upsert=True)
             return True
         else:
             return False
@@ -455,10 +455,21 @@ class Repository(MongoDbModel, common.CommonRepositoryMixin):
     batched = False
 
     def _init_from_dict(self, dict):
+        super(Repository, self)._init_from_dict(dict)
         self._attributify('url')
         self._attributify('last_index', datetime.datetime(1970,1,1))
-        self._attributify('indexing')
+        self._attributify('indexing', False)
         self._setify('commit_ids')
+        
+    def mongofy(self, mongo_object=None):
+        if mongo_object is None:
+            mongo_object = {}
+        super(Repository, self).mongofy(mongo_object)
+        mongo_object['url'] = self.url
+        mongo_object['indexing'] = self.indexing
+        mongo_object['last_index'] = self.last_index
+        mongo_object['commit_ids'] = list(self.commit_ids)
+        return mongo_object
 
     @classmethod
     def get_indexed_before(cls, date):
