@@ -19,14 +19,21 @@ curr_transaction_window = 0
 def create_schema():
     # Clear out the database
     GitObject._object_store.remove()
+    Repository._object_store.remove()
 
 def init_model(connection):
     """Call me before using any of the tables or classes in the model."""
+    raw_db = connection.anygit
+
     db = connection.anygit
     # Transform
     db.add_son_manipulator(TransformObject())
+
     GitObject._object_store = db.git_objects
+    GitObject._raw_object_store = raw_db.git_objects
+
     Repository._object_store = db.repositories
+    Repository._raw_object_store = raw_db.repositories
 
 def setup():
     """
@@ -53,7 +60,6 @@ def flush():
         klass._save_list.clear()
         
         if insert_list:
-            print 'Inserting %s' % insert_list
             klass._object_store.insert(insert_list)
             for instance in insert_list:
                 instance.new = False
@@ -111,6 +117,7 @@ class TransformObject(son_manipulator.SONManipulator):
 class MongoDbModel(object):
     # Should provide these in subclasses
     _object_store = None
+    _raw_object_store = None
     _save_list = None
     batched = True
 
@@ -175,7 +182,6 @@ class MongoDbModel(object):
         if 'id' in kwargs:
             kwargs['_id'] = kwargs['id']
             del kwargs['id']
-        print 'Querying for %s' % kwargs
         results = cls._object_store.find(kwargs)
         count = results.count()
         if count == 1:
@@ -192,7 +198,10 @@ class MongoDbModel(object):
         return cls._object_store.find({'__type__' : cls.__name__.lower()})
 
     def refresh(self):
-        raise NotImplementedError()
+        dict = self._raw_object_store.find_one({'_id' : self.id})
+        dict['id'] = dict['_id']
+        del dict['_id']
+        self._init_from_dict(dict)
 
     def validate(self):
         """A stub method.  Should be overriden in subclasses."""
@@ -237,7 +246,7 @@ class MongoDbModel(object):
     @classmethod
     def find_matching(cls, ids):
         """Given a list of ids, find the matching objects"""
-        return cls._object_store.find({'_id' : { '$in' : ids }})
+        return cls._object_store.find({'_id' : { '$in' : list(ids) }})
 
     def __str__(self):
         return '%s: %s' % (self.type, self.id)
@@ -460,6 +469,8 @@ class Repository(MongoDbModel, common.CommonRepositoryMixin):
         self._attributify('last_index', datetime.datetime(1970,1,1))
         self._attributify('indexing', False)
         self._setify('commit_ids')
+        # TODO: persist this.
+        self.remote_heads = {}
         
     def mongofy(self, mongo_object=None):
         if mongo_object is None:
