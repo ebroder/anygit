@@ -17,16 +17,16 @@ curr_transaction_window = 0
 ## Exported functions
 
 def create_schema():
-    # TODO: initialization work.
-    pass
+    # Clear out the database
+    GitObject._object_store.remove()
 
 def init_model(connection):
     """Call me before using any of the tables or classes in the model."""
-    git_objects_db = connection.anygit
-    git_objects = git_objects_db.git_objects
+    db = connection.anygit
     # Transform
-    git_objects_db.add_son_manipulator(TransformGitObject())
-    GitObject._object_store = git_objects
+    db.add_son_manipulator(TransformObject())
+    GitObject._object_store = db.git_objects
+    Repository._object_store = db.repositories
 
 def setup():
     """
@@ -95,13 +95,13 @@ def canonicalize_to_git_object(id):
 
 ## Classes
 
-class TransformGitObject(son_manipulator.SONManipulator):
+class TransformObject(son_manipulator.SONManipulator):
     def transform_incoming(self, git_object, collection):
-        """Transform a GitObject heading for the database"""
+        """Transform an object heading for the database"""
         return git_object.mongofy()
 
     def transform_outgoing(self, son, collection):
-        """Transform a GitObject retrieved from the database"""
+        """Transform an object retrieved from the database"""
         if '__type__' in son:
             klass = classify(son['__type__'])
             return klass.demongofy(son)
@@ -451,6 +451,7 @@ class Commit(GitObject, common.CommonCommitMixin):
 class Repository(MongoDbModel, common.CommonRepositoryMixin):
     """A git repository.  Contains many commits."""
     # Attributes: url, last_index, indexing, commit_ids
+    _save_list = set()
     batched = False
 
     def _init_from_dict(self, dict):
