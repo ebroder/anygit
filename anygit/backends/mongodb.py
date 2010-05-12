@@ -52,26 +52,45 @@ def flush():
         klass._save_list.clear()
         
         if insert_list:
+            print 'Inserting %s' % insert_list
             klass._object_store.insert(insert_list)
             for instance in insert_list:
                 instance.new = False
         for instance in update_list:
-            klass._object_store.update({'_id' : instance.id}, instance._pending_updates)
+            klass._object_store.update({'_id' : instance.id},
+                                       instance._pending_updates)
+            instance._pending_updates.clear()
+            
 
         
 ## Internal functions
 
 def classify(string):
     """Convert a class name to the corresponding class"""
-    # mapping = {'Repository' : Repository,
-    #            'Blob' : Blob,
-    #            'Tree' : Tree,
-    #            'Commit' : Commit}
-    mapping = {'Blob' : Blob}
+    # 'repository' : Repository,
+    mapping = {'blob' : Blob,
+               'tree' : Tree,
+               'commit' : Commit}
     try:
         return mapping[string]
     except KeyError:
         raise ValueError('No matching class found for %s' % string)
+
+def canonicalize_to_id(git_object):
+    if isinstance(git_object, GitObject):
+        return git_object.id
+    elif isinstance(git_object, str):
+        return git_object
+    else:
+        raise exceptions.Error('Illegal type %s' % git_object)
+
+def canonicalize_to_git_object(id):
+    if isinstance(sha1, str):
+        obj = GitObject.get(id=id)
+    else:
+        obj = id
+        id = obj.id
+    return id, obj
 
 ## Classes
 
@@ -82,8 +101,11 @@ class TransformGitObject(son_manipulator.SONManipulator):
 
     def transform_outgoing(self, son, collection):
         """Transform a GitObject retrieved from the database"""
-        klass = classify(son['__type__'])
-        return klass.demongofy(son)
+        if '__type__' in son:
+            klass = classify(son['__type__'])
+            return klass.demongofy(son)
+        else:
+            return son
 
 class MongoDbModel(object):
     # Should provide these in subclasses
@@ -104,20 +126,38 @@ class MongoDbModel(object):
         for k, v in dict.iteritems():
             setattr(self, k, v)
 
-    def _add_to_set(self, set_name, value):
+    def _setify(self, attr):
+        if not hasattr(self, attr):
+            setattr(self, attr, set())
+        elif not isinstance(getattr(self, attr), set):
+            setattr(self, attr, set(getattr(self, attr)))
+
+    def _add_all_to_set(self, set_name, values):
         # TODO: to get the *right* semantics, should have a committed updates
         # and an uncommitted updates.
+        assert isinstance(values, set)
+        full_set = getattr(self, set_name)
+        # Get rid of everything we already have
+        values = values.difference(full_set)
+        if not values:
+            return
+        full_set.update(values)
+        if self.new:
+            return
         adding = self._pending_updates.setdefault('$addToSet', {})
-        target_set = adding.setdefault(set_name, {'$each' : set()})
-        target_set['$each'].append(value)
-    
+        target_set = adding.setdefault(set_name, {'$each' : []})
+        target_set['$each'].extend(values)
+        
+    def _add_to_set(self, set_name, value):
+        return self._add_all_to_set(set_name, set([value]))
+
     def _set(self, attr, value):
         setting = self._pending_updates.setdefault('$set', {})
         setting[attr] = value
 
     @property
     def type(self):
-        return type(self).__name__
+        return type(self).__name__.lower()
 
     @classmethod
     def get(cls, id):
@@ -126,7 +166,11 @@ class MongoDbModel(object):
 
     @classmethod
     def get_by_attributes(cls, **kwargs):
-        results = objects.find(kwargs)
+        if 'id' in kwargs:
+            kwargs['_id'] = kwargs['id']
+            del kwargs['id']
+        print 'Querying for %s' % kwargs
+        results = cls._object_store.find(kwargs)
         count = results.count()
         if count == 1:
             result = results.next()
@@ -139,7 +183,7 @@ class MongoDbModel(object):
 
     @classmethod
     def all(cls):
-        return self._object_store.find({'__type__' : cls.__name__})
+        return cls._object_store.find({'__type__' : cls.__name__.lower()})
 
     def refresh(self):
         raise NotImplementedError()
@@ -193,6 +237,7 @@ class MongoDbModel(object):
     def __eq__(self, other):
         return self.id == other.id
 
+
 class GitObject(MongoDbModel, common.CommonGitObjectMixin):
     """The base class for git objects (such as blobs, commits, etc..)."""
     # Attributes: complete
@@ -226,164 +271,147 @@ class GitObject(MongoDbModel, common.CommonGitObjectMixin):
 class Blob(GitObject, common.CommonBlobMixin):
     """Represents a git Blob.  Has an id (the sha1 that identifies this
     object)"""
-    # Attributes: parent_ids
+    # Attributes: parent_ids.
 
     def _init_from_dict(self, dict):
         super(Blob, self)._init_from_dict(dict)
-        if not hasattr(self, 'parent_ids'):
-            self.parent_ids = []
+        self._setify('parent_ids')
 
     def mongofy(self, mongo_object=None):
         if mongo_object is None:
             mongo_object = {}
         super(Blob, self).mongofy(mongo_object)
-        mongo_object['parent_ids'] = self.parent_ids
+        mongo_object['parent_ids'] = list(self.parent_ids)
         return mongo_object
 
-    def add_parent(self, parent):
-        if isinstance(parent, GitObject):
-            parent = parent.id
-        elif not isinstance(parent, str):
-            raise exceptions.ValidationError('Unknown parent type for %s' % parent)
-        self.parent_ids.append(parent)
-        self._add_to_set('parent', parent)
+    def add_parent(self, parent_id):
+        parent_id = canonicalize_to_id(parent_id)
+        self._add_to_set('parent_ids', parent_id)
+        Tree.get(id=parent_id).add_blob(self)
 
     @property
     def repositories(self):
         raise NotImplementedError()
         # return Session.query(Repository).join('commits', 'blobs').filter(Blob.id==self.id)
 
-# class Tree(GitObject, common.CommonTreeMixin):
-#     """
-#     Represents a git Tree.  Has an id (the sha1 that identifies this
-#     object)
-#     """
-#     __tablename__ = 'trees'
-#     __mapper_args__ = {'polymorphic_identity': 'tree'}
-#     id = sa.Column(sa.ForeignKey('git_objects.id'),
-#                    primary_key=True)
-#     subtrees = orm.relation('Tree',
-#                             backref=orm.backref('parents',
-#                                                 collection_class=set),
-#                             primaryjoin=(id == trees_trees.c.parent_id),
-#                             secondaryjoin=(id == trees_trees.c.subtree_id),
-#                             secondary=trees_trees,
-#                             collection_class=set)
-#     blobs = orm.relation(Blob,
-#                          backref=orm.backref('parents',
-#                                              collection_class=set,
-#                                              foreign_keys=[trees_blobs.c.tree_id,
-#                                                            trees_blobs.c.blob_id]),
-#                          primaryjoin=(id == trees_blobs.c.tree_id),
-#                          secondaryjoin=(Blob.id == trees_blobs.c.blob_id),
-#                          secondary=trees_blobs,
-#                          foreign_keys=[trees_blobs.c.tree_id, trees_blobs.c.blob_id],
-#                          collection_class=set)
 
-#     def add_parent(self, parent):
-#         self.parents.add(parent)
+class Tree(GitObject, common.CommonTreeMixin):
+    """Represents a git Tree.  Has an id (the sha1 that identifies this
+    object)"""
+    # Attributes: subtree_ids, blob_ids, parent_ids
 
-#     @property
-#     def repositories(self):
-#         return Session.query(Repository).join('commits', 'trees').filter(Tree.id==self.id)
+    def _init_from_dict(self, dict):
+        super(Tree, self)._init_from_dict(dict)
+        self._setify('subtree_ids')
+        self._setify('blob_ids')
+        self._setify('parent_ids')
 
+    def add_blob(self, blob_id):
+        blob_id = canonicalize_to_id(blob_id)
+        self._add_to_set('blob_ids', blob_id)
 
-# class Tag(GitObject, common.CommonTagMixin):
-#     """
-#     Represents a git Tree.  Has an id (the sha1 that identifies this
-#     object)
-#     """
-#     __tablename__ = 'tags'
-#     __mapper_args__ = {'polymorphic_identity': 'tag'}
-#     id = sa.Column(sa.ForeignKey('git_objects.id'),
-#                    primary_key=True)
+    def add_subtree(self, subtree_id):
+        subtee_id = canonicalize_to_id(subtree_id)
+        self._add_to_set('subtree_ids', subtree_id)
 
-#     # Should upgrade this someday to point to arbitrary objects.
-#     commit_id = sa.Column(sa.ForeignKey('commits.id'))
+    def add_parent(self, parent_id):
+        """Give this tree a parent.  Also updates the parent to know
+        about this tree."""
+        parent_id = canonicalize_to_id(parent_id)
+        self._add_to_set('parent_ids', parent_id)
+        Tree.get(id=parent_id).add_subtree(self)
 
-#     def set_object(self, o):
-#         o = canonicalize(o)
-#         if o.type == 'commit':
-#             self.commit = o
-#         else:
-#             logger.error('Could not set object %s as the target of %s' % (o, self))
+    def mongofy(self, mongo_object=None):
+        if mongo_object is None:
+            mongo_object = {}
+        super(Tree, self).mongofy(mongo_object)
+        mongo_object['subtree_ids'] = list(self.subtree_ids)
+        mongo_object['blob_ids'] = list(self.blob_ids)
+        mongo_object['parent_ids'] = list(self.parent_ids)
+        return mongo_object
+
+    @property
+    def repositories(self):
+        raise NotImplementedError()
 
 
-# class Commit(GitObject, common.CommonCommitMixin):
-#     """
-#     Represents a git Commit.  Has an id (the sha1 that identifies
-#     this object).  Also contains blobs, trees, and tags.
-#     """
-#     __tablename__ = 'commits'
-#     __mapper_args__ = {'polymorphic_identity': 'commit'}
-#     id = sa.Column(sa.ForeignKey('git_objects.id'),
-#                    primary_key=True)
+class Tag(GitObject, common.CommonTagMixin):
+    """Represents a git Tree.  Has an id (the sha1 that identifies this
+    object)"""
+    # Attributes: commit_id
+    # Should upgrade this someday to point to arbitrary objects.
 
-#     blobs = orm.relation(Blob,
-#                          backref=orm.backref('commits',
-#                                              collection_class=set),
-#                          collection_class=set,
-#                          secondary=blobs_commits)
+    def _init_from_dict(self, dict):
+        super(Tree, self)._init_from_dict(dict)
+        if not hasattr(self, 'commit_id'):
+            self.commit_id = None
 
-#     trees = orm.relation(Tree,
-#                          backref=orm.backref('commits',
-#                                              collection_class=set),
-#                          collection_class=set,
-#                          secondary=trees_commits)
+    def mongofy(self, mongo_object=None):
+        if mongo_object is None:
+            mongo_object = {}
+        super(Tag, self).mongofy(mongo_object)
+        mongo_object['commit_id'] = self.commit_id
+        return mongo_object
 
-#     tags = orm.relation(Tag,
-#                         backref='commit',
-#                         collection_class=set,
-#                         primaryjoin=(id == Tag.commit_id))
+    def set_object(self, o):
+        o = canonicalize_to_object(o)
+        if o.type == 'commit':
+            self.commit = o
+        else:
+            logger.error('Could not set object %s as the target of %s' % (o, self))
 
-#     parents = orm.relation('Commit',
-#                            backref=orm.backref('children',
-#                                                collection_class=set),
-#                            collection_class=set,
-#                            primaryjoin=(id == commits_parents.c.child_id),
-#                            secondaryjoin=(id == commits_parents.c.parent_id),
-#                            secondary=commits_parents)
 
-#     def add_repository(self, remote, recursive=False):
-#         if isinstance(remote, str):
-#             remote = Repository.get(remote)
-#         if remote not in self.repositories:
-#             self.repositories.add(remote)
-#             if recursive:
-#                 logger.debug('Recursively adding %s to %s' % (remote, self, recursive))
-#                 for parent in self.parents:
-#                     parent.add_repository(remote, recursive=True)
+class Commit(GitObject, common.CommonCommitMixin):
+    """Represents a git Commit.  Has an id (the sha1 that identifies
+    this object).  Also contains blobs, trees, and tags."""
+    # parent_ids
 
-#     def add_tree(self, tree, recursive=True):
-#         if isinstance(tree, str):
-#             tree = Tree.get_or_create(id=tree)
-#         # Assumes the invariant that if we have added a tree before,
-#         # we have added all of its children as well
-#         if tree not in self.trees:
-#             self.trees.add(tree)
-#             if recursive:
-#                 for subtree in tree.subtrees:
-#                     self.add_tree(subtree, recursive=True)
-#                 for blob in tree.blobs:
-#                     self.add_blob(blob)
+    def _init_from_dict(self, dict):
+        super(Commit, self)._init_from_dict(dict)
+        self._setify('tree_ids')
+        self._setify('blob_ids')
+        self._setify('parent_ids')
 
-#     def add_blob(self, blob):
-#         if isinstance(blob, str):
-#             blob = Blob.get_or_create(id=blob)
-#         self.blobs.add(blob)
+    def add_repository(self, remote, recursive=False):        
+        raise NotImplementedError()
 
-#     def add_parent(self, parent):
-#         self.add_parents([parent])
+    def add_tree(self, tree_id, recursive=True):
+        tree_id, tree = canonicalize_to_git_object(tree_id)
+        # Assumes the invariant that if we have added a tree before,
+        # we have added all of its children as well
+        if tree not in self.trees:
+            self._add_to_set('tree_ids', tree_id)
+            if recursive:
+                for subtree_id in tree.subtree_ids:
+                    self.add_tree(subtree_id, recursive=True)
+                for blob_id in tree.blob_ids:
+                    self.add_blob(blob_id)
 
-#     def add_parents(self, parents):
-#         logger.debug('Adding parents %s' % parents)
-#         parents = set(canonicalize(p) for p in parents)
-#         self.parents = self.parents.union(parents)
+    def add_blob(self, blob_id):
+        blob_id = canonicalize_to_id(blob_id)
+        self._add_to_set('blob_ids', blob_id)
 
-#     @classmethod
-#     def find_matching(cls, sha1s):
-#         """Given a list of sha1s, find the matching commit objects"""
-#         return Session.query(cls).filter(cls.id.in_(sha1s))
+    def add_parent(self, parent):
+        self.add_parents([parent])
+
+    def add_parents(self, parent_ids):
+        logger.debug('Adding parents %s' % parents)
+        parent_ids = set(canonicalize_to_id(p) for p in parent_ids)
+        self._add_all_to_set('parent_ids', parent_ids)
+
+    def mongofy(self, mongo_object=None):
+        if mongo_object is None:
+            mongo_object = {}
+        super(Commit, self).mongofy(mongo_object)
+        mongo_object['tree_ids'] = list(self.tree_ids)
+        mongo_object['blob_ids'] = list(self.blob_ids)
+        mongo_object['parent_ids'] = list(self.parent_ids)
+        return mongo_object
+
+    @classmethod
+    def find_matching(cls, sha1s):
+        """Given a list of sha1s, find the matching commit objects"""
+        return cls._object_store.find({'_id' : { '$in' : sha1s }})
 
 
 # class RemoteHead(Base, SAMixin, common.CommonRemoteHeadMixin):
