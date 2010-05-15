@@ -59,8 +59,10 @@ def flush():
             elif instance._pending_updates:
                 update_list.add(instance)
             else:
-                logger.info('Skipping unchanged object %s' % instance)
+                # logger.debug('Skipping unchanged object %s' % instance)
+                pass
         klass._save_list.clear()
+        klass._cache.clear()
         
         if insert_list:
             klass._object_store.insert(insert_list)
@@ -109,9 +111,9 @@ def canonicalize_to_git_object(id):
 ## Classes
 
 class TransformObject(son_manipulator.SONManipulator):
-    def transform_incoming(self, git_object, collection):
+    def transform_incoming(self, object, collection):
         """Transform an object heading for the database"""
-        return git_object.mongofy()
+        return object.mongofy()
 
     def transform_outgoing(self, son, collection):
         """Transform an object retrieved from the database"""
@@ -123,6 +125,7 @@ class TransformObject(son_manipulator.SONManipulator):
 
 class MongoDbModel(object):
     # Should provide these in subclasses
+    _cache = {}
     _object_store = None
     _raw_object_store = None
     _save_list = None
@@ -182,6 +185,8 @@ class MongoDbModel(object):
     @classmethod
     def get(cls, id):
         """Get an item with the given primary key"""
+        if cls._cache and id in cls._cache:
+            return cls._cache[id]
         return cls.get_by_attributes(id=id)
 
     @classmethod
@@ -219,6 +224,7 @@ class MongoDbModel(object):
         self.validate()
         if not self._errors:
             if self.batched:
+                self._cache[self.id] = self
                 self._save_list.add(self)
                 if curr_transaction_window >= max_transaction_window:
                     flush()
@@ -272,6 +278,7 @@ class GitObject(MongoDbModel, common.CommonGitObjectMixin):
     """The base class for git objects (such as blobs, commits, etc..)."""
     # Attributes: complete
     _save_list = set()
+    _cache = {}
 
     def _init_from_dict(self, dict):
         super(GitObject, self)._init_from_dict(dict)
@@ -306,13 +313,13 @@ class Blob(GitObject, common.CommonBlobMixin):
     def _init_from_dict(self, dict):
         super(Blob, self)._init_from_dict(dict)
         self._setify('parent_ids')
-        self._attributify('commit_id')
+        self._setify('commit_ids')
 
     def mongofy(self, mongo_object=None):
         if mongo_object is None:
             mongo_object = {}
         super(Blob, self).mongofy(mongo_object)
-        mongo_object['commit_id'] = self.commit_id
+        mongo_object['commit_ids'] = list(self.commit_ids)
         mongo_object['parent_ids'] = list(self.parent_ids)
         return mongo_object
 
@@ -323,9 +330,9 @@ class Blob(GitObject, common.CommonBlobMixin):
         t.add_blob(self)
         t.save()
 
-    def set_commit(self, commit_id):
+    def add_commit(self, commit_id):
         commit_id = canonicalize_to_id(commit_id)
-        self._set('commit_id', commit_id)
+        self._add_to_set('commit_ids', commit_id)
 
     @property
     def commits(self):
@@ -344,17 +351,22 @@ class Tree(GitObject, common.CommonTreeMixin):
 
     def _init_from_dict(self, dict):
         super(Tree, self)._init_from_dict(dict)
-        self._attributify('commit_id')
+        self._setify('commit_ids')
         self._setify('subtree_ids')
         self._setify('blob_ids')
         self._setify('parent_ids')
+
+    def __str__(self):
+        return 'tree: id=%s, commits=%s, subtree=%ss' % (self.id,
+                                                         self.commit_ids,
+                                                         self.subtree_ids)
 
     def add_blob(self, blob_id):
         blob_id = canonicalize_to_id(blob_id)
         self._add_to_set('blob_ids', blob_id)
 
     def add_subtree(self, subtree_id):
-        subtee_id = canonicalize_to_id(subtree_id)
+        subtree_id = canonicalize_to_id(subtree_id)
         self._add_to_set('subtree_ids', subtree_id)
 
     def add_parent(self, parent_id):
@@ -366,15 +378,19 @@ class Tree(GitObject, common.CommonTreeMixin):
         t.add_subtree(self)
         t.save()
 
-    def set_commit(self, commit_id):
+    def add_commit(self, commit_id):
         commit_id = canonicalize_to_id(commit_id)
-        self._set('commit_id', commit_id)
+        self._add_to_set('commit_ids', commit_id)
+
+    @property
+    def commits(self):
+        return Commit.find_matching(self.commit_ids)
 
     def mongofy(self, mongo_object=None):
         if mongo_object is None:
             mongo_object = {}
         super(Tree, self).mongofy(mongo_object)
-        mongo_object['commit_id'] = self.commit_id
+        mongo_object['commit_ids'] = list(self.commit_ids)
         mongo_object['subtree_ids'] = list(self.subtree_ids)
         mongo_object['blob_ids'] = list(self.blob_ids)
         mongo_object['parent_ids'] = list(self.parent_ids)
@@ -425,7 +441,12 @@ class Commit(GitObject, common.CommonCommitMixin):
 
     def add_repository(self, remote_id, recursive=False):
         remote_id = canonicalize_to_id(remote_id)
-        self._add_to_set('repository_ids', remote_id)
+        if remote_id not in self.repository_ids:
+            self._add_to_set('repository_ids', remote_id)    
+            if recursive:
+                logger.debug('Recursively adding %s to %s' % (remote_id, self))
+                for parent in self.parents:
+                    parent.add_repository(remote, recursive=True)
 
     def add_tree(self, tree_id, recursive=True):
         tree_id, tree = canonicalize_to_git_object(tree_id)
@@ -434,7 +455,7 @@ class Commit(GitObject, common.CommonCommitMixin):
         if tree_id not in self.tree_ids:
             self._add_to_set('tree_ids', tree_id)
             t = Tree.get(id=tree_id)
-            t.set_commit(tree_id)
+            t.add_commit(self.id)
             t.save()
             if recursive:
                 for subtree_id in tree.subtree_ids:
@@ -445,14 +466,13 @@ class Commit(GitObject, common.CommonCommitMixin):
     def add_blob(self, blob_id):
         blob_id, blob = canonicalize_to_git_object(blob_id)
         self._add_to_set('blob_ids', blob_id)
-        blob.set_commit(self)
+        blob.add_commit(self)
         blob.save()
 
     def add_parent(self, parent):
         self.add_parents([parent])
 
     def add_parents(self, parent_ids):
-        logger.debug('Adding parents %s' % parent_ids)
         parent_ids = set(canonicalize_to_id(p) for p in parent_ids)
         self._add_all_to_set('parent_ids', parent_ids)
 
@@ -463,7 +483,12 @@ class Commit(GitObject, common.CommonCommitMixin):
         mongo_object['tree_ids'] = list(self.tree_ids)
         mongo_object['blob_ids'] = list(self.blob_ids)
         mongo_object['parent_ids'] = list(self.parent_ids)
+        mongo_object['repository_ids'] = list(self.repository_ids)
         return mongo_object
+
+    @property
+    def parents(self):
+        return Commit.find_matching(self.parent_ids)
 
     @property
     def repositories(self):
