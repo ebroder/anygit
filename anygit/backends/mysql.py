@@ -302,7 +302,7 @@ class Commit(GitObject, common.CommonCommitMixin):
         if remote not in self.repositories:
             self.repositories.add(remote)
             if recursive:
-                logger.debug('Recursively adding %s to %s' % (remote, self, recursive))
+                logger.debug('Recursively adding %s to %s' % (remote, self))
                 for parent in self.parents:
                     parent.add_repository(remote, recursive=True)
 
@@ -328,7 +328,6 @@ class Commit(GitObject, common.CommonCommitMixin):
         self.add_parents([parent])
 
     def add_parents(self, parents):
-        logger.debug('Adding parents %s' % parents)
         parents = set(canonicalize(p) for p in parents)
         self.parents = self.parents.union(parents)
 
