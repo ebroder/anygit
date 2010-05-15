@@ -28,6 +28,7 @@ def fetch(repo):
         present_commits = remote_heads.intersection(matching_commits)
         for commit in models.Commit.find_matching(present_commits):
             commit.add_repository(repo, recursive=True)
+            commit.save()
         return list(missing_commits)
 
     def get_parents(sha1):
@@ -104,6 +105,7 @@ def _process_data(repo, uncompressed_pack):
         c.add_repository(repo, recursive=False)
         c.add_tree(commit.tree, recursive=True)
         c.add_parents(commit.parents)
+        c.save()
 
     # TODO: might be able to del commits and go from there.
     logger.info('Marking objects complete for %s' % repo)
