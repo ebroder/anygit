@@ -15,16 +15,25 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-def fetch(repo):
+def fetch(repo, recover_mode=False):
+    """Fetch data from a remote.  If recover_mode, will fetch all data
+    as if we had indexed none of it.  Otherwise will do the right thing
+    with the pack protocol."""
     logger.info('Fetching from %s' % repo)
     def determine_wants(refs_dict):
-        # Strictly speaking, this only needs to return strings.
-        matching_commits = set(c.id for c in models.Commit.find_matching(refs_dict.itervalues())
-                               if c.complete)
+        if not recover_mode:
+            # Strictly speaking, this only needs to return strings.
+            matching_commits = set(c.id for c in models.Commit.find_matching(refs_dict.itervalues())
+                                   if c.complete)
+        else:
+            matching_commits = set()
         remote_heads = set(v for k, v in refs_dict.iteritems() if '^{}' not in k)
         missing_commits = remote_heads - matching_commits
         # The commits we already have
         present_commits = remote_heads.intersection(matching_commits)
+        # If we already have some commits, it's possible they're from
+        # a different repo, so we should make sure that this one gets
+        # them:
         for commit in models.Commit.find_matching(present_commits):
             commit.add_repository(repo, recursive=True)
             commit.save()
@@ -96,7 +105,7 @@ def _process_data(repo, uncompressed_pack):
             try:
                 child = models.GitObject.get(sha1)
             except exceptions.DoesNotExist:
-                logger.error('Could not find child %s of %s' % (sha1, t.id))
+                logger.error('Could not find child %s of %s in repo %s' % (sha1, t.id, repo))
             else:
                 if child.type == 'tree' or child.type == 'blob':
                     child.add_parent(t)
@@ -146,7 +155,7 @@ def index_data(data, repo, is_path=False):
     _process_data(repo, objects_iterator)
 
 def fetch_and_index(repo):
-    if isinstance(repo, str):
+    if isinstance(repo, str) or isinstance(repo, unicode):
         repo = models.Repository.get(repo)
     repo.refresh()
     # There's a race condition here where two indexing processes might
@@ -181,7 +190,7 @@ def fetch_and_index_threaded(repo):
     return fetch_and_index(repo)
 
 def index_all(last_index=None, parallel=True):
-    repos = models.Repository.get_indexed_before(last_index)
+    repos = list(models.Repository.get_indexed_before(last_index))
     logger.info('About to index %d repos' % len(repos))
     if parallel:
         repo_ids = [r.id for r in repos]
