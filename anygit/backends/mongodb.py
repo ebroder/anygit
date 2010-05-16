@@ -543,6 +543,9 @@ class Repository(MongoDbModel, common.CommonRepositoryMixin):
     last_index = make_persistent_attribute(default=datetime.datetime(1970,1,1))
     indexing = make_persistent_attribute(default=False)
     commit_ids = make_persistent_set()
+    been_indexed = make_persistent_attribute(default=False)
+    # TODO: switch this to a default of False if we get spam.
+    approved = make_persistent_attribute(default=True)
 
     def __init__(self, *args, **kwargs):
         super(Repository, self).__init__(*args, **kwargs)
@@ -558,6 +561,8 @@ class Repository(MongoDbModel, common.CommonRepositoryMixin):
         mongo_object['indexing'] = self.indexing
         mongo_object['last_index'] = self.last_index
         mongo_object['commit_ids'] = list(self.commit_ids)
+        mongo_object['been_indexed'] = self.been_indexed
+        mongo_object['approved'] = self.approved
         return mongo_object
 
     @classmethod
@@ -565,9 +570,12 @@ class Repository(MongoDbModel, common.CommonRepositoryMixin):
         """Get all repos indexed before the given date and not currently
         being indexed."""
         if date is not None:
-            return cls._object_store.find({'last_index' : {'$lt' : date}, 'indexing' : False})
+            return cls._object_store.find({'last_index' : {'$lt' : date},
+                                           'indexing' : False,
+                                           'approved' : True})
         else:
-            return cls._object_store.find({'indexing' : False})
+            return cls._object_store.find({'indexing' : False,
+                                           'approved' : True})
 
     def __str__(self):
         return 'Repository: %s' % self.url
