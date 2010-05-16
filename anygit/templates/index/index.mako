@@ -14,9 +14,18 @@ indexed and counting.  We also have thus far indexed
 <b>${models.Tree.count(complete=True)}</b> trees, and
 <b>${models.Commit.count(complete=True)}</b> commits.</p>
 
+<h2> Request indexing </h2>
+
 <p>
-You can <a href="request">request</a> that your Git repo be indeed.
-</p>
+Would you like your repository to be indexed next?
+
+<%self:form url="${url_for(controller='index', action='do_request')}">
+<p> <label for="url">Git URL:</label>
+${webhelpers.html.tags.text('url')}
+${webhelpers.html.tags.submit('submit', 'Index me please')} </p>
+</%self:form> </p>
+
+<h2> Query </h2>
 
 <p>
 You can query for any Git object by going to <b>http://gdb.mit.edu/anygit/q/$sha1prefix</b>
