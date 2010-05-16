@@ -219,12 +219,12 @@ def fetch_and_index_threaded(repo):
     models.setup()
     return fetch_and_index(repo)
 
-def index_all(last_index=None, parallel=True):
+def index_all(last_index=None, threads=1):
     repos = list(models.Repository.get_indexed_before(last_index))
     logger.info('About to index %d repos' % len(repos))
-    if parallel:
+    if threads > 1:
         repo_ids = [r.id for r in repos]
-        pool = multiprocessing.Pool(5)
+        pool = multiprocessing.Pool(threads)
         pool.map(fetch_and_index_threaded, repo_ids)
     else:
         [fetch_and_index(repo) for repo in repos]
