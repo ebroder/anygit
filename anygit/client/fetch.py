@@ -150,7 +150,7 @@ def _process_data(repo, uncompressed_pack):
             c.add_tree(commit.tree, recursive=True)
             c.add_parents(commit.parents)
         except exceptions.DoesNotExist, e:
-            logger.error('Had trouble with %s, error:\n%s!' % (c, traceback.format_exc(e)))
+            logger.error('Had trouble with %s, error:\n%s!' % (commit, traceback.format_exc(e)))
         else:
             c.save()
 
