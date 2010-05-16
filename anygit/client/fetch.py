@@ -99,7 +99,7 @@ def _process_data(repo, uncompressed_pack):
         try:
             t = models.Tree.get(id=tree.id)
         except exceptions.DoesNotExist:
-            logger.error('Apparently %s does not exist...' % t)
+            logger.error('Apparently %s does not exist in %s...' % (tree.id, repo))
             continue
         for _, _, sha1 in tree.iteritems():
             try:
@@ -175,7 +175,7 @@ def fetch_and_index(repo):
         data_path = fetch(repo)
         index_data(data_path, repo, is_path=True)
         repo.last_index = now
-        repo.indexed = True
+        repo.been_indexed = True
         repo.save()
     except Exception, e:
         logger.error('Had a problem: %s' % traceback.format_exc())

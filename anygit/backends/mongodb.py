@@ -89,7 +89,8 @@ def classify(string):
     mapping = {'repository' : Repository,
                'blob' : Blob,
                'tree' : Tree,
-               'commit' : Commit}
+               'commit' : Commit,
+               'tag' : Tag}
     try:
         return mapping[string]
     except KeyError:
