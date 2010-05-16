@@ -15,12 +15,24 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-def fetch(repo, recover_mode=False):
+def check_validity(repo):
+    try:
+        fetch(repo, discover_only=True)
+    except:
+        return False
+    else:
+        return True
+
+def fetch(repo, recover_mode=False, discover_only=False):
     """Fetch data from a remote.  If recover_mode, will fetch all data
     as if we had indexed none of it.  Otherwise will do the right thing
-    with the pack protocol."""
+    with the pack protocol.  If discover_only, will fetch no data."""
     logger.info('Fetching from %s' % repo)
     def determine_wants(refs_dict):
+        # We don't want anything, just seeing if you exist.
+        if discover_only:
+            return []
+
         if not recover_mode:
             # Strictly speaking, this only needs to return strings.
             matching_commits = set(c.id for c in models.Commit.find_matching(refs_dict.itervalues())
