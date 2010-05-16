@@ -21,14 +21,22 @@ class IndexController(BaseController):
             redirect_to('index')
 
         if models.Repository.exists(url=url):
-            r = models.Repository.get_by_attributes(url=url)
-            if r.approved:
+            repo = models.Repository.get_by_attributes(url=url)
+            if repo.approved:
                 helpers.flash('Someone has already requested indexing of %s, '
                               'so no worries' % url)
             else:
-                helpers.error("That's odd... someone already asked for %s, but it looks "
-                              "to use like we can't talk to that repo.  Is there a typo "
-                              "in there?  If not, please email anygit@mit.edu" % url)
+                if not fetch.check_validity(repo):
+                    helpers.error("That's odd... someone already asked for %s, but it looks "
+                                  "to use like we can't talk to that repo.  Is there a typo "
+                                  "in there?  If not, please email anygit@mit.edu" % url)
+                else:
+                    repo.approved = True
+                    repo.save()
+                    models.flush()
+                    helpers.flash("Someone had requested %s before but it was down then. "
+                                  "Looks like it's back up now.  We'll get right to it."
+                                  % url)
             redirect_to('index')
 
         repo = models.Repository.create(url=url)
