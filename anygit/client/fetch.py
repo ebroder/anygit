@@ -87,7 +87,11 @@ def _process_data(repo, uncompressed_pack):
     logger.info('Setting tree children for %s' % repo)
     trees = iter(o for o in uncompressed_pack.iterobjects() if o._type == 'tree')
     for tree in trees:
-        t = models.Tree.get(id=tree.id)
+        try:
+            t = models.Tree.get(id=tree.id)
+        except exceptions.DoesNotExist:
+            logger.error('Apparently %s does not exist...' % t)
+            continue
         for _, _, sha1 in tree.iteritems():
             try:
                 child = models.GitObject.get(sha1)
@@ -113,8 +117,7 @@ def _process_data(repo, uncompressed_pack):
 
     # TODO: might be able to del commits and go from there.
     logger.info('Marking objects complete for %s' % repo)
-    objects = iter(o for o in uncompressed_pack.iterobjects())
-    for object in objects:
+    for object in uncompressed_pack.iterobjects():
         try:
             o = models.GitObject.get(id=object.id)
         except exceptions.DoesNotExist:
@@ -163,6 +166,7 @@ def fetch_and_index(repo):
         data_path = fetch(repo)
         index_data(data_path, repo, is_path=True)
         repo.last_index = now
+        repo.indexed = True
         repo.save()
     except Exception, e:
         logger.error('Had a problem: %s' % traceback.format_exc())
