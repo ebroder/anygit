@@ -302,7 +302,16 @@ class MongoDbModel(object):
     @classmethod
     def find_matching(cls, ids):
         """Given a list of ids, find the matching objects"""
-        return cls._object_store.find({'_id' : { '$in' : list(ids) }})
+        if hasattr(cls, 'abstract') and cls.abstract:
+            return cls._object_store.find()
+        else:
+            return cls._object_store.find({'_id' : { '$in' : list(ids) }})
+
+    @classmethod
+    def count(cls, **kwargs):
+        """Find the number of objects that match the given criteria"""
+        kwargs['__type__'] = cls.__name__.lower()
+        return cls._object_store.find(kwargs).count()
 
     def __str__(self):
         return '%s: %s' % (self.type, self.id)
@@ -322,6 +331,7 @@ class GitObject(MongoDbModel, common.CommonGitObjectMixin):
     # Attributes: complete
     _save_list = set()
     _cache = {}
+    abstract = True
 
     complete = make_persistent_attribute()
 
