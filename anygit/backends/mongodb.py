@@ -61,6 +61,7 @@ def flush():
             else:
                 # logger.debug('Skipping unchanged object %s' % instance)
                 pass
+            instance._pending_save = False
         klass._save_list.clear()
         klass._cache.clear()
         
@@ -138,6 +139,7 @@ class MongoDbModel(object):
         self._init_from_dict(kwargs)
         self.new = True
         self._pending_updates = {}
+        self._pending_save = False
 
     def _init_from_dict(self, dict):
         assert '_id' not in dict
@@ -219,19 +221,30 @@ class MongoDbModel(object):
         """A stub method.  Should be overriden in subclasses."""
         pass
 
+    def changed(self):
+        """Indicate whether this object is changed from the version in the database.  Returns
+        True for new objects."""
+        return self.new or instance._pending_updates
+
     def save(self):
         global curr_transaction_window
         self.validate()
         if not self._errors:
-            if self.batched:
+            if not self.changed:
+                return True
+            elif self.batched:
                 self._cache[self.id] = self
                 self._save_list.add(self)
+                if self._pending_save:
+                    return
+                self._pending_save = True
                 if curr_transaction_window >= max_transaction_window:
                     flush()
                     curr_transaction_window = 0
                 else:
                     curr_transaction_window += 1
             else:
+                # TODO: don't have to clobber the whole object here...
                 self._object_store.update({'_id' : self.id}, self.mongofy(), upsert=True)
             return True
         else:
