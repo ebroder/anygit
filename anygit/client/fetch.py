@@ -3,6 +3,7 @@ from dulwich import client, object_store, pack
 import logging
 import os
 import tempfile
+import threading
 import traceback
 
 from anygit import models
@@ -14,11 +15,28 @@ except ImportError:
     import processing as multiprocessing
 
 logger = logging.getLogger(__name__)
+timeout = 10
+
+class Checker(threading.Thread):
+    valid = None
+    def __init__(self, repo):
+        super(Checker, self).__init__()
+        self.repo = repo
+
+    def run(self):
+        try:
+            fetch(repo, discover_only=True)
+        except:
+            self.valid = False
+        else:
+            self.valid = True
 
 def check_validity(repo):
-    try:
-        fetch(repo, discover_only=True)
-    except:
+    c = Checker(repo)
+    c.start()
+    c.join(timeout)
+    # TODO: could still be open...
+    if c.isAlive() or not c.valid:
         return False
     else:
         return True

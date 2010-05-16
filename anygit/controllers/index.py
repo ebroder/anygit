@@ -26,7 +26,12 @@ class IndexController(BaseController):
                 helpers.flash('Someone has already requested indexing of %s, '
                               'so no worries' % url)
             else:
-                if not fetch.check_validity(repo):
+                if not url.startswith('git://'):
+                    helpers.flash("That repo (%s) has been already requested.  At the "
+                                  "moment, anygit only supports git protocol (git://) "
+                                  "repositories.  Once we've added support for this "
+                                  "repo's protocol, we'll index it." % url)
+                elif not fetch.check_validity(repo):
                     helpers.error("That's odd... someone already asked for %s, but it looks "
                                   "to us like we can't talk to that repo.  Is there a typo "
                                   "in there?  If not, please email anygit@mit.edu" % url)
@@ -40,19 +45,16 @@ class IndexController(BaseController):
             redirect_to('index')
 
         repo = models.Repository.create(url=url)
-        # Make sure we can talk to it
-        if not fetch.check_validity(repo):
-            repo.approved = False
-            repo.save()
-            models.flush()
-            helpers.error("Could not talk to %s; are you sure it's a valid URL?" % url)
-            redirect_to('index')
 
-        models.flush()
-        if url.startswith('git://'):
-            helpers.flash('Successfully requested %s for indexing' % url)
-        else:
-            helpers.flash('Successfully requested %s for indexing.  However, '
+        if not url.startswith('git://'):
+            helpers.flash('Successfully requested %s for future indexing.  However, '
                           'please note that only git protocol (git://) '
                           'repositories are currently supported by anygit.' % url)
+        # Make sure we can talk to it
+        elif not fetch.check_validity(repo):
+            helpers.error("Could not talk to %s; are you sure it's a valid URL?" % url)
+        else:
+            repo.approved = True
+            repo.save()
+            helpers.flash('Successfully requested %s for indexing' % url)
         redirect_to('index')

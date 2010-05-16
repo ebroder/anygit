@@ -555,8 +555,7 @@ class Repository(MongoDbModel, common.CommonRepositoryMixin):
     indexing = make_persistent_attribute(default=False)
     commit_ids = make_persistent_set()
     been_indexed = make_persistent_attribute(default=False)
-    # TODO: switch this to a default of False if we get spam.
-    approved = make_persistent_attribute(default=True)
+    approved = make_persistent_attribute(default=False)
 
     def __init__(self, *args, **kwargs):
         super(Repository, self).__init__(*args, **kwargs)
