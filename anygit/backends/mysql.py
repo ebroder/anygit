@@ -331,6 +331,10 @@ class Commit(GitObject, common.CommonCommitMixin):
         parents = set(canonicalize(p) for p in parents)
         self.parents = self.parents.union(parents)
 
+    @property
+    def parent_ids(self):
+        return [parent.id for parent in self.parents]
+
     @classmethod
     def find_matching(cls, sha1s):
         """Given a list of sha1s, find the matching commit objects"""

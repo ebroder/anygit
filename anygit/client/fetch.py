@@ -37,7 +37,7 @@ def fetch(repo):
         except exceptions.DoesNotExist:
             return []
         else:
-            return [p.id for p in c.parents]
+            return c.parent_ids
 
     destfd, destfile_name = tempfile.mkstemp()
     destfile = os.fdopen(destfd, 'w')
