@@ -228,6 +228,10 @@ class MongoDbModel(object):
     def all(cls):
         return cls._object_store.find({'__type__' : cls.__name__.lower()})
 
+    @classmethod
+    def exists(cls, **kwargs):
+        return cls._object_store.find(kwargs).count() > 0
+
     def refresh(self):
         dict = self._raw_object_store.find_one({'_id' : self.id})
         dict['id'] = dict['_id']

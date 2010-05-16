@@ -19,7 +19,6 @@ def fetch(repo):
     logger.info('Fetching from %s' % repo)
     def determine_wants(refs_dict):
         # Strictly speaking, this only needs to return strings.
-        logger.debug('Called determine_wants for %s' % repo)
         matching_commits = set(c.id for c in models.Commit.find_matching(refs_dict.itervalues())
                                if c.complete)
         remote_heads = set(v for k, v in refs_dict.iteritems() if '^{}' not in k)
@@ -29,6 +28,7 @@ def fetch(repo):
         for commit in models.Commit.find_matching(present_commits):
             commit.add_repository(repo, recursive=True)
             commit.save()
+        logger.debug('Requesting %d remote heads for %s.' % (len(missing_commits), repo))
         return list(missing_commits)
 
     def get_parents(sha1):
@@ -74,13 +74,13 @@ def _process_data(repo, uncompressed_pack):
     for obj in uncompressed_pack.iterobjects():
         object_type = obj._type
         if object_type == 'blob':
-            b = models.Blob.get_or_create(id=obj.id)
+            models.Blob.create_if_not_exists(id=obj.id)
         elif object_type == 'tree':
-            t = models.Tree.get_or_create(id=obj.id)
+            models.Tree.create_if_not_exists(id=obj.id)
         elif object_type == 'commit':
-            c = models.Commit.get_or_create(id=obj.id)
+            models.Commit.create_if_not_exists(id=obj.id)
         elif object_type == 'tag':
-            t = models.Tag.get_or_create(id=obj.id)
+            models.Tag.create_if_not_exists(id=obj.id)
         else:
             raise ValueEror('Unrecognized type %s' % object_type)
 
@@ -101,11 +101,15 @@ def _process_data(repo, uncompressed_pack):
     logger.info('Starting commit indexing for %s' % repo)
     commits = iter(o for o in uncompressed_pack.iterobjects() if o._type == 'commit')
     for commit in commits:
-        c = models.Commit.get(id=commit.id)
-        c.add_repository(repo, recursive=False)
-        c.add_tree(commit.tree, recursive=True)
-        c.add_parents(commit.parents)
-        c.save()
+        try:
+            c = models.Commit.get(id=commit.id)
+            c.add_repository(repo, recursive=False)
+            c.add_tree(commit.tree, recursive=True)
+            c.add_parents(commit.parents)
+        except exceptions.DoesNotExist, e:
+            logger.error('Had trouble with %s, error:\n%s!' % (c, traceback.format_exc(e)))
+        else:
+            c.save()
 
     # TODO: might be able to del commits and go from there.
     logger.info('Marking objects complete for %s' % repo)

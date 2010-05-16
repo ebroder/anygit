@@ -21,6 +21,11 @@ class CommonMixin(object):
         return instance
 
     @classmethod
+    def create_if_not_exists(cls, id):
+        if not cls.exists(id=id):
+            cls.create(id=id)
+
+    @classmethod
     def get_or_create(cls, **kwargs):
         try:
             return cls.get_by_attributes(**kwargs)
