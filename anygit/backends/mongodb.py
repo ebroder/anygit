@@ -51,7 +51,7 @@ def flush():
     logger.debug('Committing...')
     classes = [GitObject]
     for klass in classes:
-        logger.debug('Saving %d objects for %s' % (len(klass._save_list), klass))
+        logger.debug('Saving %d objects for %s...' % (len(klass._save_list), klass.__name__))
         insert_list = set()
         update_list = set()
         for instance in klass._save_list:
@@ -75,7 +75,8 @@ def flush():
             klass._object_store.update({'_id' : instance.id},
                                        instance._pending_updates)
             instance._pending_updates.clear()
-        logger.debug('Done with %s.' % klass)
+        logger.debug('Saving %s complete.' % klass.__name__)
+
             
 def destroy_session():
     if connection is not None:
@@ -228,9 +229,9 @@ class MongoDbModel(object):
             assert isinstance(result, cls)
             return result
         elif count == 0:
-            raise exceptions.DoesNotExist('%s: %s' % (cls, kwargs))
+            raise exceptions.DoesNotExist('%s: %s' % (cls.__name__, kwargs))
         else:
-            raise exceptions.NotUnique('%s: %s' % (cls, kwargs))
+            raise exceptions.NotUnique('%s: %s' % (cls.__name__, kwargs))
 
     @classmethod
     def all(cls):
