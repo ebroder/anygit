@@ -103,10 +103,12 @@ def canonicalize_to_id(db_object):
     else:
         raise exceptions.Error('Illegal type %s (instance %r)' % (type(db_object), db_object))
 
-def canonicalize_to_git_object(id):
+def canonicalize_to_object(id, cls=None):
+    if not cls:
+        cls = GitObject
     if isinstance(id, str) or isinstance(id, unicode):
-        obj = GitObject.get(id=id)
-    elif isinstance(id, GitObject):
+        obj = cls.get(id=id)
+    elif isinstance(id, cls):
         obj = id
         id = obj.id
     else:
@@ -168,10 +170,12 @@ class MongoDbModel(object):
     _raw_object_store = None
     _save_list = None
     batched = True
+    abstract = True
 
     # Attributes: id, type
 
     def __init__(self, _raw_dict={}, **kwargs):
+        assert not self.abstract
         rename_dict_keys(kwargs, to_backend=True)
         kwargs.update(_raw_dict)
         self._init_from_dict(kwargs)
@@ -302,7 +306,7 @@ class MongoDbModel(object):
     @classmethod
     def find_matching(cls, ids):
         """Given a list of ids, find the matching objects"""
-        if hasattr(cls, 'abstract') and cls.abstract:
+        if cls.abstract:
             return cls._object_store.find()
         else:
             return cls._object_store.find({'_id' : { '$in' : list(ids) }})
@@ -331,7 +335,6 @@ class GitObject(MongoDbModel, common.CommonGitObjectMixin):
     # Attributes: complete
     _save_list = set()
     _cache = {}
-    abstract = True
 
     complete = make_persistent_attribute()
 
@@ -359,6 +362,7 @@ class GitObject(MongoDbModel, common.CommonGitObjectMixin):
 class Blob(GitObject, common.CommonBlobMixin):
     """Represents a git Blob.  Has an id (the sha1 that identifies this
     object)"""
+    abstract = False
     # Attributes: parent_ids.
     parent_ids = make_persistent_set()
     commit_ids = make_persistent_set()
@@ -395,6 +399,7 @@ class Blob(GitObject, common.CommonBlobMixin):
 class Tree(GitObject, common.CommonTreeMixin):
     """Represents a git Tree.  Has an id (the sha1 that identifies this
     object)"""
+    abstract = False
     # Attributes: subtree_ids, blob_ids, parent_ids
     commit_ids = make_persistent_set()
     subtree_ids = make_persistent_set()
@@ -450,6 +455,7 @@ class Tree(GitObject, common.CommonTreeMixin):
 class Tag(GitObject, common.CommonTagMixin):
     """Represents a git Tree.  Has an id (the sha1 that identifies this
     object)"""
+    abstract = False
     # Attributes: commit_id
     # Should upgrade this someday to point to arbitrary objects.
     commit_id = make_persistent_attribute()
@@ -462,7 +468,7 @@ class Tag(GitObject, common.CommonTagMixin):
         return mongo_object
 
     def set_object(self, o):
-        o_id, o = canonicalize_to_git_object(o)
+        o_id, o = canonicalize_to_object(o)
         if o.type == 'commit':
             self.commit_id = o_id
         else:
@@ -472,6 +478,7 @@ class Tag(GitObject, common.CommonTagMixin):
 class Commit(GitObject, common.CommonCommitMixin):
     """Represents a git Commit.  Has an id (the sha1 that identifies
     this object).  Also contains blobs, trees, and tags."""
+    abstract = False
     # tree_ids, blob_ids, parent_ids, repository_ids
     tree_ids = make_persistent_set()
     blob_ids = make_persistent_set()
@@ -479,16 +486,18 @@ class Commit(GitObject, common.CommonCommitMixin):
     repository_ids = make_persistent_set()
 
     def add_repository(self, remote_id, recursive=False):
-        remote_id = canonicalize_to_id(remote_id)
+        remote_id, remote = canonicalize_to_object(remote_id, cls=Repository)
         if remote_id not in self.repository_ids:
-            self._add_to_set('repository_ids', remote_id)    
+            self._add_to_set('repository_ids', remote_id)
             if recursive:
+                # If you're calling this recursively, then you are committing
+                self.save()
                 logger.debug('Recursively adding %s to %s' % (remote_id, self))
                 for parent in self.parents:
                     parent.add_repository(remote, recursive=True)
 
     def add_tree(self, tree_id, recursive=True):
-        tree_id, tree = canonicalize_to_git_object(tree_id)
+        tree_id, tree = canonicalize_to_object(tree_id)
         # Assumes the invariant that if we have added a tree before,
         # we have added all of its children as well
         if tree_id not in self.tree_ids:
@@ -503,7 +512,7 @@ class Commit(GitObject, common.CommonCommitMixin):
                     self.add_blob(blob_id)
 
     def add_blob(self, blob_id):
-        blob_id, blob = canonicalize_to_git_object(blob_id)
+        blob_id, blob = canonicalize_to_object(blob_id)
         self._add_to_set('blob_ids', blob_id)
         blob.add_commit(self)
         blob.save()
@@ -535,10 +544,11 @@ class Commit(GitObject, common.CommonCommitMixin):
 
 class Repository(MongoDbModel, common.CommonRepositoryMixin):
     """A git repository.  Contains many commits."""
-    # Attributes: url, last_index, indexing, commit_ids
     _save_list = set()
     batched = False
+    abstract = False
 
+    # Attributes: url, last_index, indexing, commit_ids
     url = make_persistent_attribute()
     last_index = make_persistent_attribute(default=datetime.datetime(1970,1,1))
     indexing = make_persistent_attribute(default=False)
