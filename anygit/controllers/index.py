@@ -28,7 +28,7 @@ class IndexController(BaseController):
             else:
                 if not fetch.check_validity(repo):
                     helpers.error("That's odd... someone already asked for %s, but it looks "
-                                  "to use like we can't talk to that repo.  Is there a typo "
+                                  "to us like we can't talk to that repo.  Is there a typo "
                                   "in there?  If not, please email anygit@mit.edu" % url)
                 else:
                     repo.approved = True
