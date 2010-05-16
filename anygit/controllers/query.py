@@ -17,4 +17,8 @@ class QueryController(BaseController):
         c.objects = matching
         c.count = count
         return render('query.mako', controller='query')
+
+    def query_with_string(self):
+        query = request.params.get('query', '')
+        redirect_to(action='query', id=query)
     q = query
