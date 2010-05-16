@@ -26,7 +26,9 @@ class BaseController(WSGIController):
             models.destroy_session()
 
 def render(path, controller, **kwargs):
+    kwargs.setdefault('flash_now', None)
+    kwargs.setdefault('error_now', None)
     return render_mako(os.path.join(controller, path), extra_vars={'webhelpers' : webhelpers,
                                                                    'h' : helpers,
                                                                    'config' : config,
-                                                                   'args' : kwargs})
+                                                                   'kwargs' : kwargs})

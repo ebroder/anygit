@@ -12,7 +12,11 @@
         </div>
 
 	<div class="flash">
-	  <% messages = h.flash.pop_messages() %>
+	  <%
+	     messages = h.flash.pop_messages()
+	     if kwargs['flash_now']:
+               messages.append(kwargs['flash_now'])
+          %>
 	  % if messages:
 	  <ul id="flash-messages">
 	    % for message in messages:
@@ -21,7 +25,11 @@
 	  </ul>
 	  % endif
 
-	  <% errors = h.error.pop_messages() %>
+	  <%
+	     errors = h.error.pop_messages()
+	     if kwargs['error_now']:
+               errors.append(kwargs['error_now'])
+          %>
 	  % if errors:
 	  <ul id="error-messages">
 	    % for error in errors:
