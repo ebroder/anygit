@@ -3,10 +3,12 @@
 Provides the BaseController class for subclassing.
 """
 import os
+from pylons import config
 from pylons.controllers import WSGIController
 from pylons.templating import render_mako
 
 from anygit import models
+from anygit.lib import helpers
 
 import webhelpers.html.secure_form
 import webhelpers.html.tags
@@ -23,5 +25,8 @@ class BaseController(WSGIController):
         finally:
             models.destroy_session()
 
-def render(path, controller):
-    return render_mako(os.path.join(controller, path), extra_vars={'webhelpers' : webhelpers})
+def render(path, controller, **kwargs):
+    return render_mako(os.path.join(controller, path), extra_vars={'webhelpers' : webhelpers,
+                                                                   'h' : helpers,
+                                                                   'config' : config,
+                                                                   'args' : kwargs})
