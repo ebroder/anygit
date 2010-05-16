@@ -135,6 +135,16 @@ def make_persistent_attribute(default=None):
         setattr(self, backend_attr, value)
     return property(_getter, _setter)
 
+def rename_dict_keys(dict, to_backend=True):
+    if to_backend:
+        if 'id' in dict:
+            dict['_id'] = dict['id']
+            del dict['id']
+    else:
+        if '_id' in dict:
+            dict['id'] = dict['_id']
+            del dict['_id']
+
 ## Classes
 
 class TransformObject(son_manipulator.SONManipulator):
@@ -161,6 +171,7 @@ class MongoDbModel(object):
     # Attributes: id, type
 
     def __init__(self, _raw_dict={}, **kwargs):
+        rename_dict_keys(kwargs, to_backend=True)
         kwargs.update(_raw_dict)
         self._init_from_dict(kwargs)
         self.new = True
@@ -169,8 +180,7 @@ class MongoDbModel(object):
         self._changed = False
 
     def _init_from_dict(self, dict):
-        assert '_id' not in dict
-        assert 'id' in dict
+        rename_dict_keys(dict, to_backend=False)
         for k, v in dict.iteritems():
             setattr(self, k, v)
 
@@ -210,9 +220,7 @@ class MongoDbModel(object):
 
     @classmethod
     def get_by_attributes(cls, **kwargs):
-        if 'id' in kwargs:
-            kwargs['_id'] = kwargs['id']
-            del kwargs['id']
+        rename_dict_keys(kwargs, to_backend=True)
         results = cls._object_store.find(kwargs)
         count = results.count()
         if count == 1:
@@ -230,12 +238,11 @@ class MongoDbModel(object):
 
     @classmethod
     def exists(cls, **kwargs):
+        rename_dict_keys(kwargs, to_backend=True)
         return cls._object_store.find(kwargs).count() > 0
 
     def refresh(self):
         dict = self._raw_object_store.find_one({'_id' : self.id})
-        dict['id'] = dict['_id']
-        del dict['_id']
         self._init_from_dict(dict)
 
     def validate(self):
@@ -317,9 +324,6 @@ class GitObject(MongoDbModel, common.CommonGitObjectMixin):
 
     complete = make_persistent_attribute()
 
-    def _init_from_dict(self, dict):
-        super(GitObject, self)._init_from_dict(dict)
-
     def mongofy(self, mongo_object):
         super(GitObject, self).mongofy(mongo_object)
         mongo_object['complete'] = self.complete
@@ -347,9 +351,6 @@ class Blob(GitObject, common.CommonBlobMixin):
     # Attributes: parent_ids.
     parent_ids = make_persistent_set()
     commit_ids = make_persistent_set()
-
-    def _init_from_dict(self, dict):
-        super(Blob, self)._init_from_dict(dict)
 
     def mongofy(self, mongo_object=None):
         if mongo_object is None:
@@ -388,9 +389,6 @@ class Tree(GitObject, common.CommonTreeMixin):
     subtree_ids = make_persistent_set()
     blob_ids = make_persistent_set()
     parent_ids = make_persistent_set()
-
-    def _init_from_dict(self, dict):
-        super(Tree, self)._init_from_dict(dict)
 
     def __str__(self):
         return 'tree: id=%s, commits=%s, subtree=%ss' % (self.id,
@@ -445,9 +443,6 @@ class Tag(GitObject, common.CommonTagMixin):
     # Should upgrade this someday to point to arbitrary objects.
     commit_id = make_persistent_attribute()
 
-    def _init_from_dict(self, dict):
-        super(Tree, self)._init_from_dict(dict)
-
     def mongofy(self, mongo_object=None):
         if mongo_object is None:
             mongo_object = {}
@@ -471,9 +466,6 @@ class Commit(GitObject, common.CommonCommitMixin):
     blob_ids = make_persistent_set()
     parent_ids = make_persistent_set()
     repository_ids = make_persistent_set()
-
-    def _init_from_dict(self, dict):
-        super(Commit, self)._init_from_dict(dict)
 
     def add_repository(self, remote_id, recursive=False):
         remote_id = canonicalize_to_id(remote_id)
@@ -541,11 +533,12 @@ class Repository(MongoDbModel, common.CommonRepositoryMixin):
     indexing = make_persistent_attribute(default=False)
     commit_ids = make_persistent_set()
 
-    def _init_from_dict(self, dict):
-        super(Repository, self)._init_from_dict(dict)
+    def __init__(self, *args, **kwargs):
+        super(Repository, self).__init__(*args, **kwargs)
         # TODO: persist this.
-        self.remote_heads = {}
-        
+        if not hasattr(self, 'remote_heads'):
+            self.remote_heads = {}
+
     def mongofy(self, mongo_object=None):
         if mongo_object is None:
             mongo_object = {}
