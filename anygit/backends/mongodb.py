@@ -3,6 +3,7 @@ import logging
 from pylons import config
 import pymongo
 from pymongo import son_manipulator
+import random
 import re
 
 from anygit.backends import common
@@ -62,6 +63,7 @@ def flush():
                 # logger.debug('Skipping unchanged object %s' % instance)
                 pass
             instance._pending_save = False
+            instance._changed = False
         klass._save_list.clear()
         klass._cache.clear()
         
@@ -73,6 +75,7 @@ def flush():
             klass._object_store.update({'_id' : instance.id},
                                        instance._pending_updates)
             instance._pending_updates.clear()
+        logger.debug('Done with %s.' % klass)
             
 def destroy_session():
     if connection is not None:
@@ -109,6 +112,29 @@ def canonicalize_to_git_object(id):
         raise exceptions.Error('Illegal type %s (instance %r)' % (type(id), id))
     return id, obj
 
+def make_persistent_set():
+    backend_attr = '__%s' % hex(random.getrandbits(128))
+    def _getter(self):
+        if not hasattr(self, backend_attr):
+            setattr(self, backend_attr, set())
+        return getattr(self, backend_attr)
+    def _setter(self, value):
+        if not isinstance(value, set):
+            value = set(value)
+        setattr(self, backend_attr, value)
+    return property(_getter, _setter)
+
+def make_persistent_attribute(default=None):
+    backend_attr = '__%s' % hex(random.getrandbits(128))
+    def _getter(self):
+        if not hasattr(self, backend_attr):
+            setattr(self, backend_attr, default)
+        return getattr(self, backend_attr)
+    def _setter(self, value):
+        self._changed = True
+        setattr(self, backend_attr, value)
+    return property(_getter, _setter)
+
 ## Classes
 
 class TransformObject(son_manipulator.SONManipulator):
@@ -140,22 +166,13 @@ class MongoDbModel(object):
         self.new = True
         self._pending_updates = {}
         self._pending_save = False
+        self._changed = False
 
     def _init_from_dict(self, dict):
         assert '_id' not in dict
         assert 'id' in dict
         for k, v in dict.iteritems():
             setattr(self, k, v)
-
-    def _setify(self, attr):
-        if not hasattr(self, attr):
-            setattr(self, attr, set())
-        elif not isinstance(getattr(self, attr), set):
-            setattr(self, attr, set(getattr(self, attr)))
-
-    def _attributify(self, attr, default=None):
-        if not hasattr(self, attr):
-            setattr(self, attr, default)
 
     def _add_all_to_set(self, set_name, values):
         # TODO: to get the *right* semantics, should have a committed updates
@@ -221,10 +238,11 @@ class MongoDbModel(object):
         """A stub method.  Should be overriden in subclasses."""
         pass
 
+    @property
     def changed(self):
-        """Indicate whether this object is changed from the version in the database.  Returns
-        True for new objects."""
-        return self.new or instance._pending_updates
+        """Indicate whether this object is changed from the version in
+        the database.  Returns True for new objects."""
+        return self.new or self._changed or self._pending_updates
 
     def save(self):
         global curr_transaction_window
@@ -293,9 +311,10 @@ class GitObject(MongoDbModel, common.CommonGitObjectMixin):
     _save_list = set()
     _cache = {}
 
+    complete = make_persistent_attribute()
+
     def _init_from_dict(self, dict):
         super(GitObject, self)._init_from_dict(dict)
-        self._attributify('complete')
 
     def mongofy(self, mongo_object):
         super(GitObject, self).mongofy(mongo_object)
@@ -322,11 +341,11 @@ class Blob(GitObject, common.CommonBlobMixin):
     """Represents a git Blob.  Has an id (the sha1 that identifies this
     object)"""
     # Attributes: parent_ids.
+    parent_ids = make_persistent_set()
+    commit_ids = make_persistent_set()
 
     def _init_from_dict(self, dict):
         super(Blob, self)._init_from_dict(dict)
-        self._setify('parent_ids')
-        self._setify('commit_ids')
 
     def mongofy(self, mongo_object=None):
         if mongo_object is None:
@@ -361,13 +380,13 @@ class Tree(GitObject, common.CommonTreeMixin):
     """Represents a git Tree.  Has an id (the sha1 that identifies this
     object)"""
     # Attributes: subtree_ids, blob_ids, parent_ids
+    commit_ids = make_persistent_set()
+    subtree_ids = make_persistent_set()
+    blob_ids = make_persistent_set()
+    parent_ids = make_persistent_set()
 
     def _init_from_dict(self, dict):
         super(Tree, self)._init_from_dict(dict)
-        self._setify('commit_ids')
-        self._setify('subtree_ids')
-        self._setify('blob_ids')
-        self._setify('parent_ids')
 
     def __str__(self):
         return 'tree: id=%s, commits=%s, subtree=%ss' % (self.id,
@@ -420,10 +439,10 @@ class Tag(GitObject, common.CommonTagMixin):
     object)"""
     # Attributes: commit_id
     # Should upgrade this someday to point to arbitrary objects.
+    commit_id = make_persistent_attribute()
 
     def _init_from_dict(self, dict):
         super(Tree, self)._init_from_dict(dict)
-        self._attributify('commit_id')
 
     def mongofy(self, mongo_object=None):
         if mongo_object is None:
@@ -443,14 +462,14 @@ class Tag(GitObject, common.CommonTagMixin):
 class Commit(GitObject, common.CommonCommitMixin):
     """Represents a git Commit.  Has an id (the sha1 that identifies
     this object).  Also contains blobs, trees, and tags."""
-    # parent_ids
+    # tree_ids, blob_ids, parent_ids, repository_ids
+    tree_ids = make_persistent_set()
+    blob_ids = make_persistent_set()
+    parent_ids = make_persistent_set()
+    repository_ids = make_persistent_set()
 
     def _init_from_dict(self, dict):
         super(Commit, self)._init_from_dict(dict)
-        self._setify('tree_ids')
-        self._setify('blob_ids')
-        self._setify('parent_ids')
-        self._setify('repository_ids')
 
     def add_repository(self, remote_id, recursive=False):
         remote_id = canonicalize_to_id(remote_id)
@@ -513,12 +532,13 @@ class Repository(MongoDbModel, common.CommonRepositoryMixin):
     _save_list = set()
     batched = False
 
+    url = make_persistent_attribute()
+    last_index = make_persistent_attribute(default=datetime.datetime(1970,1,1))
+    indexing = make_persistent_attribute(default=False)
+    commit_ids = make_persistent_set()
+
     def _init_from_dict(self, dict):
         super(Repository, self)._init_from_dict(dict)
-        self._attributify('url')
-        self._attributify('last_index', datetime.datetime(1970,1,1))
-        self._attributify('indexing', False)
-        self._setify('commit_ids')
         # TODO: persist this.
         self.remote_heads = {}
         
