@@ -1,0 +1,16 @@
+ul#flash-messages, ul#error-messages {
+    background-color: #FFFFCC;
+    font-size: larger;
+    font-style: italic;
+    margin-left: 40px;
+    padding: 4px;
+    list-style: none;
+    }
+
+ul#flash-messages {
+    color: green;
+}
+
+ul#error-messages {
+    color: red;
+}
