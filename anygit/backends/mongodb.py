@@ -12,7 +12,7 @@ from anygit.data import exceptions
 
 logger = logging.getLogger(__name__)
 
-max_transaction_window = 10000
+max_transaction_window = 1000
 curr_transaction_window = 0
 
 connection = None
