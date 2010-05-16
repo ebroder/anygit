@@ -307,10 +307,7 @@ class MongoDbModel(object):
     @classmethod
     def find_matching(cls, ids):
         """Given a list of ids, find the matching objects"""
-        if cls.abstract:
-            return cls._object_store.find()
-        else:
-            return cls._object_store.find({'_id' : { '$in' : list(ids) }})
+        return cls._object_store.find({'_id' : { '$in' : list(ids) }})
 
     @classmethod
     def count(cls, **kwargs):
@@ -457,24 +454,30 @@ class Tag(GitObject, common.CommonTagMixin):
     """Represents a git Tree.  Has an id (the sha1 that identifies this
     object)"""
     abstract = False
-    # Attributes: commit_id
+    # Attributes: object_id, repository_ids
     # Should upgrade this someday to point to arbitrary objects.
-    commit_id = make_persistent_attribute()
+    object_id = make_persistent_attribute()
+    repository_ids = make_persistent_set()
+
+    def add_repository(self, remote_id, recursive=False):
+        remote_id = canonicalize_to_id(remote_id)
+        if remote_id not in self.repository_ids:
+            self._add_to_set('repository_ids', remote_id)
+            if recursive:
+                # If you're calling this recursively, then you are committing
+                self.save()
 
     def mongofy(self, mongo_object=None):
         if mongo_object is None:
             mongo_object = {}
         super(Tag, self).mongofy(mongo_object)
-        mongo_object['commit_id'] = self.commit_id
+        mongo_object['object_id'] = self.object_id
+        mongo_object['repository_ids'] = list(self.repository_ids)
         return mongo_object
 
-    def set_object(self, o):
-        o_id, o = canonicalize_to_object(o)
-        if o.type == 'commit':
-            self.commit_id = o_id
-        else:
-            logger.error('Could not set object %s as the target of %s' % (o, self))
-
+    def set_object(self, o_id):
+        o_id = canonicalize_to_id(o_id)
+        self.object_id = o_id
 
 class Commit(GitObject, common.CommonCommitMixin):
     """Represents a git Commit.  Has an id (the sha1 that identifies

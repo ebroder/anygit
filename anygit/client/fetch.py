@@ -63,8 +63,8 @@ def fetch(repo, recover_mode=False, discover_only=False):
         present_commits = remote_heads.intersection(matching_commits)
         # If we already have some commits, it's possible they're from
         # a different repo, so we should make sure that this one gets
-        # them:
-        for commit in models.Commit.find_matching(present_commits):
+        # them.  Note that these commits may actually be tags:
+        for commit in models.GitObject.find_matching(present_commits):
             commit.add_repository(repo, recursive=True)
             commit.save()
         logger.debug('Requesting %d remote heads for %s.' % (len(missing_commits), repo))
@@ -169,7 +169,8 @@ def _process_data(repo, uncompressed_pack):
     tags = iter(o for o in uncompressed_pack.iterobjects() if o._type == 'tag')
     for tag in tags:
         t = models.Tag.get_or_create(id=tag.id)
-        t.set_object(tag.get_object())
+        t.add_repository(repo, recursive=False)
+        t.set_object(tag.get_object().id)
         t.save()
 
 def index_data(data, repo, is_path=False):
