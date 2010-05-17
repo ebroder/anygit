@@ -131,7 +131,7 @@ def _process_data(repo, uncompressed_pack):
         except exceptions.DoesNotExist:
             logger.error('Apparently %s does not exist in %s...' % (tree.id, repo))
             continue
-        for _, _, sha1 in tree.iteritems():
+        for name, child_type, sha1 in tree.iteritems():
             try:
                 child = models.GitObject.get(sha1)
             except exceptions.DoesNotExist:
@@ -170,7 +170,7 @@ def _process_data(repo, uncompressed_pack):
     for tag in tags:
         t = models.Tag.get_or_create(id=tag.id)
         t.add_repository(repo, recursive=False)
-        t.set_object(tag.get_object().id)
+        t.set_object(tag.get_object()[1])
         t.save()
 
 def index_data(data, repo, is_path=False):
@@ -185,7 +185,7 @@ def index_data(data, repo, is_path=False):
     objects_iterator = _get_objects_iterator(data, is_path)
     _process_data(repo, objects_iterator)
 
-def fetch_and_index(repo):
+def fetch_and_index(repo, recover_mode=False):
     if isinstance(repo, str) or isinstance(repo, unicode):
         repo = models.Repository.get(repo)
     repo.refresh()
@@ -203,7 +203,7 @@ def fetch_and_index(repo):
         repo.indexing = True
         repo.save()
         models.flush()
-        data_path = fetch(repo)
+        data_path = fetch(repo, recover_mode=recover_mode)
         index_data(data_path, repo, is_path=True)
         repo.last_index = now
         repo.been_indexed = True
