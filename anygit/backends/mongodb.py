@@ -494,6 +494,7 @@ class Commit(GitObject, common.CommonCommitMixin):
     blob_ids = make_persistent_set()
     parent_ids = make_persistent_set()
     repository_ids = make_persistent_set()
+    submodule_of = make_persistent_set()
 
     def add_repository(self, remote_id, recursive=False):
         remote_id, remote = canonicalize_to_object(remote_id, cls=Repository)
@@ -534,6 +535,10 @@ class Commit(GitObject, common.CommonCommitMixin):
         parent_ids = set(canonicalize_to_id(p) for p in parent_ids)
         self._add_all_to_set('parent_ids', parent_ids)
 
+    def add_as_submodule_of(self, repo_id):
+        repo_id = canonicalize_to_id(repo_id)
+        self._add_to_set('submodule_of', repo_id)
+
     def mongofy(self, mongo_object=None):
         if mongo_object is None:
             mongo_object = {}
@@ -542,6 +547,7 @@ class Commit(GitObject, common.CommonCommitMixin):
         mongo_object['blob_ids'] = list(self.blob_ids)
         mongo_object['parent_ids'] = list(self.parent_ids)
         mongo_object['repository_ids'] = list(self.repository_ids)
+        mongo_object['submodule_of'] = list(self.submodule_of)
         return mongo_object
 
     @property

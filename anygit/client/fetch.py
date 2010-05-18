@@ -76,7 +76,7 @@ def fetch(repo, recover_mode=False, discover_only=False):
         except exceptions.DoesNotExist:
             return []
         else:
-            return c.parent_ids
+            return [p.id for p in c.parents if p.type == 'commit']
 
     destfd, destfile_name = tempfile.mkstemp()
     destfile = os.fdopen(destfd, 'w')
@@ -122,6 +122,7 @@ def _process_data(repo, uncompressed_pack):
             models.Tag.create_if_not_exists(id=obj.id)
         else:
             raise ValueEror('Unrecognized type %s' % object_type)
+    models.flush()
 
     logger.info('Setting tree children for %s' % repo)
     trees = iter(o for o in uncompressed_pack.iterobjects() if o._type == 'tree')
@@ -135,11 +136,15 @@ def _process_data(repo, uncompressed_pack):
             try:
                 child = models.GitObject.get(sha1)
             except exceptions.DoesNotExist:
-                logger.error('Could not find child %s of %s in repo %s' % (sha1, t.id, repo))
+                logger.error("Could not find child %s of %s in repo %s, assuming "
+                             "it's a commit from a submodule" % (sha1, t.id, repo))
+                child = models.Commit.get_or_create(id=sha1)
+            if child.type in ['tree', 'blob']:
+                child.add_parent(t)
             else:
-                if child.type == 'tree' or child.type == 'blob':
-                    child.add_parent(t)
-                    child.save()
+                assert child.type == 'commit'
+                child.add_as_submodule_of(t)
+            child.save()
 
     logger.info('Starting commit indexing for %s' % repo)
     commits = iter(o for o in uncompressed_pack.iterobjects() if o._type == 'commit')
