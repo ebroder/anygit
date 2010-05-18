@@ -140,14 +140,17 @@ def make_persistent_attribute(default=None):
     return property(_getter, _setter)
 
 def rename_dict_keys(dict, to_backend=True):
+    attrs = [('_id', 'id'), ('__type__', 'type')]
     if to_backend:
-        if 'id' in dict:
-            dict['_id'] = dict['id']
-            del dict['id']
+        for backend, frontend in attrs:
+            if frontend in dict:
+                dict[backend] = dict[frontend]
+                del dict[frontend]
     else:
-        if '_id' in dict:
-            dict['id'] = dict['_id']
-            del dict['_id']
+        for backend, frontend in attrs:
+            if backend in dict:
+                dict[frontend] = dict[backend]
+                del dict[backend]
 
 ## Classes
 
@@ -188,6 +191,9 @@ class MongoDbModel(object):
     def _init_from_dict(self, dict):
         rename_dict_keys(dict, to_backend=False)
         for k, v in dict.iteritems():
+            if k == 'type':
+                assert v == self.type
+                continue
             setattr(self, k, v)
 
     def _add_all_to_set(self, set_name, values):
