@@ -2,6 +2,7 @@ import logging
 import os
 import pycurl
 import StringIO
+import subprocess
 import time
 import traceback
 import urllib2
@@ -12,24 +13,34 @@ from anygit import models
 logger = logging.getLogger(__name__)
 users = set()
 pending_users = set()
+servers = [None, 'BEES-KNEES.MIT.EDU', 'CATS-WHISKERS.MIT.EDU', 'PANCAKE-BUNNY.MIT.EDU',
+           'REAL-MCCOY.MIT.EDU', 'BUSY-BEAVER.MIT.EDU']
+i = 0
+
+def get_next_server():
+    global i
+    server = servers[i]
+    i = (i + 1) % len(servers)
+    return server
+
+def run(args):
+    stdout, _ = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    return stdout
 
 def yaml_curl(url):
-    time.sleep(0.8)
-    t = 25
+    t = 10
     result = None
     while not result:
-        c = pycurl.Curl()
-        c.setopt(pycurl.URL, url)
-        b = StringIO.StringIO()
-        c.setopt(pycurl.WRITEFUNCTION, b.write)
-        c.setopt(pycurl.FOLLOWLOCATION, 1)
-        c.setopt(pycurl.MAXREDIRS, 5)
-        c.perform()
-        c.close()
+        server = get_next_server()
+        if server:
+            cmd = ['ssh', server, 'curl', url]
+        else:
+            cmd = ['curl', url]
+        value = run(cmd)
         try:
-            result = yaml.load(b.getvalue())
+            result = yaml.load(value)
         except Exception, e:
-            logger.error('Tripped over content:\n%s\n%s' % (b.getvalue(), traceback.format_exc()))
+            logger.error('Tripped over content:\n%s\n%s' % (value, traceback.format_exc()))
             result = {'error' : '(Manual)'}
 
         if result.get('error') == [{'error': 'too many requests'}]:
