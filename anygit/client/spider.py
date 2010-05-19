@@ -15,13 +15,41 @@ users = set()
 pending_users = set()
 servers = [None, 'BEES-KNEES.MIT.EDU', 'CATS-WHISKERS.MIT.EDU', 'PANCAKE-BUNNY.MIT.EDU',
            'REAL-MCCOY.MIT.EDU', 'BUSY-BEAVER.MIT.EDU']
+proxies = []
+start_port = 6000
 i = 0
 
-def get_next_server():
+def proxy_fetch(proxy, url):
+    time.sleep(0.3)
+    c = pycurl.Curl()
+    if proxy:
+        c.setopt(pycurl.PROXY, proxy)
+        c.setopt(pycurl.PROXYTYPE, pycurl.PROXYTYPE_SOCKS5)
+    c.setopt(pycurl.URL, url)
+    b = StringIO.StringIO()
+    c.setopt(pycurl.WRITEFUNCTION, b.write)
+    c.setopt(pycurl.FOLLOWLOCATION, 1)
+    c.setopt(pycurl.MAXREDIRS, 5)
+    c.perform()
+    c.close()
+    return b.getvalue()
+
+def setup_proxies():
+    port = start_port
+    for server in servers:
+        if server:
+            subprocess.Popen(['ssh', '-D', str(port), server], stdin=subprocess.PIPE,
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            proxies.append((server, 'localhost:%d' % port))
+            port += 1
+        else:
+            proxies.append((server, None))
+
+def get_next_proxy():
     global i
-    server = servers[i]
-    i = (i + 1) % len(servers)
-    return server
+    proxy = proxies[i][1]
+    i = (i + 1) % len(proxies)
+    return proxy
 
 def run(args):
     stdout, _ = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
@@ -31,12 +59,8 @@ def yaml_curl(url):
     t = 10
     result = None
     while not result:
-        server = get_next_server()
-        if server:
-            cmd = ['ssh', server, 'curl', url]
-        else:
-            cmd = ['curl', url]
-        value = run(cmd)
+        proxy = get_next_proxy()
+        value = proxy_fetch(proxy, url)
         try:
             result = yaml.load(value)
         except Exception, e:
@@ -44,7 +68,9 @@ def yaml_curl(url):
             result = {'error' : '(Manual)'}
 
         if result.get('error') == [{'error': 'too many requests'}]:
-            logger.error('Rate limited!  (%s)  Sleeping for %d seconds.' % (result, t))
+            logger.error('Rate limited on proxy %s!  (%s)  Sleeping for %d seconds.' % (proxy,
+                                                                                        result,
+                                                                                        t))
             time.sleep(t)
             t *= 2
             result = None
@@ -103,6 +129,7 @@ def spider(user):
     state_file ='state.yml'
     load_state(state_file)
     record_user(user)
+    setup_proxies()
 
     while True:
         try:
