@@ -391,12 +391,22 @@ class Blob(GitObject, common.CommonBlobMixin):
         self._add_to_set('commit_ids', commit_id)
 
     @property
+    def parents(self):
+        return Tree.find_matching(self.parent_ids)
+
+    @property
     def commits(self):
         return Commit.find_matching(self.commit_ids)
 
     @property
+    def repository_ids(self):
+        repo_ids = set()
+        for commit in self.commits:
+            repo_ids.update(commit.repository_ids)
+        return repo_ids
+
+    @property
     def repositories(self):
-        repository_ids = set(commit.repository_id for commit in commits)
         return Repository.find_matching(self.repository_ids)
 
 
@@ -426,11 +436,10 @@ class Tree(GitObject, common.CommonTreeMixin):
     def add_parent(self, parent_id):
         """Give this tree a parent.  Also updates the parent to know
         about this tree."""
-        parent_id = canonicalize_to_id(parent_id)
+        parent_id, parent = canonicalize_to_object(parent_id)
         self._add_to_set('parent_ids', parent_id)
-        t = Tree.get(id=parent_id)
-        t.add_subtree(self)
-        t.save()
+        parent.add_subtree(self)
+        parent.save()
 
     def add_commit(self, commit_id):
         commit_id = canonicalize_to_id(commit_id)
@@ -451,8 +460,14 @@ class Tree(GitObject, common.CommonTreeMixin):
         return mongo_object
 
     @property
+    def repository_ids(self):
+        repo_ids = set()
+        for commit in self.commits:
+            repo_ids.update(commit.repository_ids)
+        return repo_ids
+
+    @property
     def repositories(self):
-        repository_ids = set(commit.repository_id for commit in commits)
         return Repository.find_matching(self.repository_ids)
 
 
@@ -484,6 +499,11 @@ class Tag(GitObject, common.CommonTagMixin):
     def set_object(self, o_id):
         o_id = canonicalize_to_id(o_id)
         self.object_id = o_id
+
+    @property
+    def repositories(self):
+        return Repository.find_matching(self.repository_ids)
+
 
 class Commit(GitObject, common.CommonCommitMixin):
     """Represents a git Commit.  Has an id (the sha1 that identifies

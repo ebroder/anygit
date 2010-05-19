@@ -60,3 +60,20 @@ ${webhelpers.html.secure_form.secure_form(url)}
 ${caller.body()}
 ${webhelpers.html.tags.end_form()}
 </%def>
+
+<%def name="link_to_object(obj)">
+<a href="${h.get_url(obj)}">${obj.id}</a>
+</%def>
+
+<%def name="link_to_repo(repo, obj)">
+<a href="${repo.url}">${repo.url}</a>
+</%def>
+
+<%def name="link_to_view(repo, obj)">
+<% v = h.get_view_url_for(repo, obj) %>
+% if v:
+<a href="${v}">${repo.url}</a>
+% else:
+<b>${repo.url}</b>
+% endif
+</%def>

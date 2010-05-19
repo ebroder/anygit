@@ -1,5 +1,6 @@
 import hashlib
 import re
+import routes.util
 import urlparse
 
 from anygit.data import exceptions

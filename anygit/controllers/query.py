@@ -23,9 +23,26 @@ class QueryController(BaseController):
         else:
             error_now = None
         id = id.lower()
-        matching, count = models.GitObject.lookup_by_sha1(sha1=id, partial=True)
+        # Invalid params will throw an exception.
+        page = max(int(request.params.get('page', 0)), 1)
+        limit = min(int(request.params.get('limit', 10)), 50)
+        offset = (page - 1) * limit
+        matching, count = models.GitObject.lookup_by_sha1(sha1=id,
+                                                          partial=True,
+                                                          offset=offset,
+                                                          limit=limit)
+        c.page = page
+        c.start = offset + 1
+        c.end = min(page * limit, count)
+        c.limit = limit
         c.objects = matching
         c.count = count
+        c.queried_id = id
+        # Nonsensical if count == 0
+        if c.start > count:
+            c.out_of_range = True
+        else:
+            c.out_of_range = False
         return render('query.mako', controller='query', error_now=error_now)
 
     def query_with_string(self):
