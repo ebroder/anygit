@@ -1,6 +1,7 @@
 import logging
 import os
 import pycurl
+import re
 import StringIO
 import subprocess
 import time
@@ -19,7 +20,9 @@ proxies = []
 start_port = 6000
 i = 0
 
-def proxy_fetch(proxy, url):
+### Github methods
+
+def fetch(url, proxy=None):
     time.sleep(0.3)
     c = pycurl.Curl()
     if proxy:
@@ -60,7 +63,7 @@ def yaml_curl(url):
     result = None
     while not result:
         proxy = get_next_proxy()
-        value = proxy_fetch(proxy, url)
+        value = fetch(url, proxy=proxy)
         try:
             result = yaml.load(value)
         except Exception, e:
@@ -125,10 +128,11 @@ def record_user(new_user):
         logger.info('Adding new user %s' % new_user)
         pending_users.add(new_user)
 
-def spider(user):
+def github_spider():
     state_file ='state.yml'
     load_state(state_file)
-    record_user(user)
+    if not pending_users:
+        raw_input('Please enter in a GitHub user to bootstrap from: ')
     setup_proxies()
 
     while True:
@@ -143,7 +147,7 @@ def spider(user):
                     (user, len(pending_users), pending_users, len(repos)))
         for repo in repos:
             r = models.Repository.get_or_create(url=repo[':url'])
-            r.approved = True
+            r.approved = 'spidered'
             r.save()
             for new_user in get_collaborators(user, repo[':name']):
                 # Don't repeat people
@@ -151,3 +155,15 @@ def spider(user):
 
         dump_state(state_file)
     logger.info('All done.')
+
+# git.kernel.org spider
+
+def kernel_spider():
+    content = fetch('http://git.kernel.org/')
+    repo_extractor = re.compile('git://[^\s<>]+\.git')
+    for match in repo_extractor.finditer(content):
+        logger.info('Adding repo %s' % match.group(0))
+        r = models.Repository.get_or_create(url=match.group(0))
+        r.approved = 'spidered'
+        r.save()
+
