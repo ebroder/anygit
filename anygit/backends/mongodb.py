@@ -43,8 +43,11 @@ def setup():
     Sets up the database session
     """
     global connection
+    port = config.get('mongodb.port', None)
+    if port:
+        port = int(port)
     connection = pymongo.Connection(config['mongodb.url'],
-                                    config.get('mongodb.port', None))
+                                    port)
     init_model(connection)
 
 def flush():
@@ -448,6 +451,10 @@ class Tree(GitObject, common.CommonTreeMixin):
     @property
     def commits(self):
         return Commit.find_matching(self.commit_ids)
+
+    @property
+    def parents(self):
+        return Tree.find_matching(self.parent_ids)
 
     def mongofy(self, mongo_object=None):
         if mongo_object is None:
