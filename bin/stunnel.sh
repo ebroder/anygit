@@ -1,3 +1,4 @@
+#!/bin/bash
 # Hack to get stunnel running, independent of platform.
 # Ubuntu seems to package one version of the CLI, Fedora another.
 

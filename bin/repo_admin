@@ -2,13 +2,16 @@
 import optparse
 import os
 import sys
+import time
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from anygit import clisetup
 from anygit import models
+from anygit.client import fetch
 
 def main():
-    parser = optparse.OptionParser('%prog [options] {add,list}')
+    parser = optparse.OptionParser('%prog [options] {add,list,approve}')
+    parser.add_option('-d', '--delay', dest='delay', type=int, default=1, help='Delay between remote requests')
     opts, args = parser.parse_args()
     if not len(args):
         parser.print_help()
@@ -23,7 +26,19 @@ def main():
             parser.print_help()
             return 2
         for repo in models.Repository.all():
-            print repo
+            print '%s (approved: %s, last index: %s)' % (repo, repo.approved, repo.last_index)
+    elif args[0] == 'approve':
+        for repo in models.Repository.all():
+            if repo.approved not in (True, False):
+                if fetch.check_validity(repo):
+                    time.sleep(opts.delay)
+                    repo.approved = True
+                    repo.save()
+                    print 'Approved %s' % repo
+                else:
+                    print '%s is dead' % repo
+                    repo.approved = False
+                    repo.save()
     else:
         parser.print_help()
         return 3
