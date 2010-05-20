@@ -1,11 +1,8 @@
 #!/usr/bin/env python
-import logging.config
 import os
-from paste.deploy import loadapp
 import sys
-conf = '/mit/gdb/web_scripts/anygit/anygit.ini'
-app = loadapp('config:%s' % conf,relative_to=os.getcwd())
-logging.config.fileConfig(conf)
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
+from anygit import clisetup
 from anygit.client import fetch
 fetch.index_all(threads=8)

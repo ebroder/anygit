@@ -1,0 +1,32 @@
+#!/usr/bin/env python
+import optparse
+import os
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
+from anygit import clisetup
+from anygit import models
+
+def main():
+    parser = optparse.OptionParser('%prog [options] {add,list}')
+    opts, args = parser.parse_args()
+    if not len(args):
+        parser.print_help()
+        return 1
+    if args[0] == 'add':
+        if len(args) != 2:
+            parser.print_help()
+            return 2
+        models.Repository.get_or_create(url=args[1])
+    elif args[0] == 'list':
+        if len(args) != 1:
+            parser.print_help()
+            return 2
+        for repo in models.Repository.all():
+            print repo
+    else:
+        parser.print_help()
+        return 3
+
+if __name__ == '__main__':
+    sys.exit(main())
