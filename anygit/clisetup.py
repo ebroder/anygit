@@ -3,6 +3,8 @@ import os
 from paste.deploy import loadapp
 import sys
 
-conf = '/mit/gdb/web_scripts/anygit/anygit.ini'
+DIR = os.path.abspath(os.path.dirname(__file__))
+conf = os.path.join(DIR, '../conf/anygit.ini')
+application = loadapp('config:%s' % conf, relative_to='/')
 app = loadapp('config:%s' % conf,relative_to=os.getcwd())
 logging.config.fileConfig(conf)

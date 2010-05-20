@@ -10,7 +10,9 @@ sys.path.append('/mit/gdb/Scripts/anygit')
 from flup.server.fcgi import WSGIServer
 from paste.deploy import loadapp
 
-application = loadapp('config:anygit.ini', relative_to=os.getcwd())
+DIR = os.path.abspath(os.path.dirname(__file__))
+conf = os.path.join(DIR, '../conf/anygit.ini')
+application = loadapp('config:%s' % conf, relative_to='/')
 
 def reloader_thread():
   while True:
