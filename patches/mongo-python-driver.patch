@@ -7,13 +7,13 @@ index 0000000..3e3afac
 +export PYTHONPATH=../../lib/lib64/python2.6/site-packages/:../../lib/lib64/python
 +
 +install:
-+       ./setup.py install --home ../../lib
++	./setup.py install --home ../../lib
 +
 +clean:
-+       git reset --hard
-+       git clean -f
++	git reset --hard
++	git clean -f
 diff --git a/pymongo/connection.py b/pymongo/connection.py
-index 59710d8..f27afbd 100644
+index 59710d8..adecd6a 100644
 --- a/pymongo/connection.py
 +++ b/pymongo/connection.py
 @@ -40,6 +40,7 @@ import os
@@ -41,3 +41,12 @@ index 59710d8..f27afbd 100644
                      sock.connect((host, port))
                      sock.settimeout(self.__network_timeout)
                      master = self.__master(sock)
+@@ -468,6 +472,8 @@ class Connection(object): # TODO support auth for pooling
+             sock = socket.socket()
+             sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+             sock.settimeout(_CONNECT_TIMEOUT)
++            sock = ssl.wrap_socket(sock, ca_certs=_MONGODB_CERT_PATH,
++                                   cert_reqs=ssl.CERT_REQUIRED)
+             sock.connect((self.__host, self.__port))
+             sock.settimeout(self.__network_timeout)
+             return sock

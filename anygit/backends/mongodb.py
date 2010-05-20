@@ -48,6 +48,7 @@ def setup():
         port = int(port)
     connection = pymongo.Connection(config['mongodb.url'],
                                     port)
+    connection.anygit.authenticate(config['mongodb.username'], config['mongodb.password'])
     init_model(connection)
 
 def flush():
