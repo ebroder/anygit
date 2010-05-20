@@ -25,8 +25,9 @@ class Checker(threading.Thread):
 
     def run(self):
         try:
-            fetch(repo, discover_only=True)
-        except:
+            fetch(self.repo, discover_only=True)
+        except Exception, e:
+            logger.debug(traceback.format_exc(e))
             self.valid = False
         else:
             self.valid = True

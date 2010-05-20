@@ -132,7 +132,8 @@ def github_spider():
     state_file ='state.yml'
     load_state(state_file)
     if not pending_users:
-        raw_input('Please enter in a GitHub user to bootstrap from: ')
+        user = raw_input('Please enter in a GitHub user to bootstrap from: ').strip()
+        pending_users.add(user)
     setup_proxies()
 
     while True:
@@ -146,7 +147,8 @@ def github_spider():
         logger.info('Beginning spider for %s with %d pending users (%s).  Found %d repos' %
                     (user, len(pending_users), pending_users, len(repos)))
         for repo in repos:
-            r = models.Repository.get_or_create(url=repo[':url'])
+            url = 'git://%s.git' % repo[':url'].strip('http://')
+            r = models.Repository.get_or_create(url=url)
             r.approved = 'spidered'
             r.save()
             for new_user in get_collaborators(user, repo[':name']):
