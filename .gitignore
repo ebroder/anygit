@@ -6,3 +6,4 @@ development.db
 anygit.egg-info
 data
 lib
+conf/anygit.ini
