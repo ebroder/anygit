@@ -1,0 +1,8 @@
+import os
+import sys
+
+DIR = os.path.dirname(__file__)
+# Giant hack.  TODO: cleanup
+__LOCAL_MODULES = os.path.abspath(os.path.join(DIR, '../lib/lib64/python/pymongo-1.6_-py2.6-linux-x86_64.egg/'))
+if __LOCAL_MODULES not in sys.path:
+    sys.path.append(__LOCAL_MODULES)

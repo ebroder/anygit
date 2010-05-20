@@ -1,0 +1,3 @@
+[submodule "submodules/mongo-python-driver"]
+	path = submodules/mongo-python-driver
+	url = http://github.com/mongodb/mongo-python-driver.git
