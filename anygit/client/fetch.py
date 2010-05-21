@@ -146,6 +146,7 @@ def _process_object(repo, object, progress):
         try:
             c = models.Commit.get(id=object.id)
             c.add_parents(object.parents)
+            c.set_tree(object.tree)
             c.save()
 
             child = models.Tree.get(id=object.tree)
@@ -163,6 +164,7 @@ def _process_object(repo, object, progress):
                             (object._type, object.id, repo, traceback.format_exc(e)))
             raise
         else:
+            t.set_object(object.get_object()[1])
             t.add_repository(repo, recursive=False)
             t.save()
 
@@ -177,11 +179,9 @@ def _process_data(repo, uncompressed_pack, progress):
             assert o.type == 'tree'
         elif obj._type == 'commit':
             o = models.Commit.get_or_create(id=obj.id)
-            o.set_tree(obj.tree)
             assert o.type == 'commit'
         elif obj._type == 'tag':
             o = models.Tag.get_or_create(id=obj.id)
-            o.set_object(obj.get_object()[1])
             assert o.type == 'tag'
         else:
             raise ValueEror('Unrecognized type %s' % obj._type)
