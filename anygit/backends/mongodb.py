@@ -321,9 +321,8 @@ class MongoDbModel(object):
     def get_updates(self):
         if self.new:
             # Hack to add *something* for new insertions
-            return {'$set' : {'__type__' : type(self).__name__.lower() }}
-        else:
-            return self._pending_updates
+            self._pending_updates.setdefault('$set', {}).setdefault('__type__', self.type)
+        return self._pending_updates
 
     def __str__(self):
         return '%s: %s' % (self.type, self.id)
