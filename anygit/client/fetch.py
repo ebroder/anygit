@@ -223,9 +223,10 @@ def index_data(data, repo, is_path=False):
         counter['count'] += 1
         if not counter['count'] % 10000:
             check_for_die_file()
-            logger.info('About to process object %d for %s (object is %s)' % (counter['count'],
-                                                                              repo,
-                                                                              object))
+            logger.info('About to process object %d for %s (object is %s %s)' % (counter['count'],
+                                                                                 repo,
+                                                                                 object.tree,
+                                                                                 object.id))
     _process_data(repo, objects_iterator, progress)
 
 def fetch_and_index(repo, recover_mode=False):
