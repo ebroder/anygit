@@ -202,8 +202,6 @@ class MongoDbModel(object):
         if not values:
             return
         full_set.update(values)
-        if self.new:
-            return
         adding = self._pending_updates.setdefault('$addToSet', {})
         target_set = adding.setdefault(set_name, {'$each' : []})
         target_set['$each'].extend(values)
@@ -214,6 +212,7 @@ class MongoDbModel(object):
     def _set(self, attr, value):
         setting = self._pending_updates.setdefault('$set', {})
         setting[attr] = value
+        setattr(self, attr, value)
 
     @property
     def type(self):
