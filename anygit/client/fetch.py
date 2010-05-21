@@ -2,6 +2,7 @@ import datetime
 from dulwich import client, object_store, pack
 import logging
 import os
+import sys
 import tempfile
 import threading
 import traceback
@@ -14,8 +15,15 @@ try:
 except ImportError:
     import processing as multiprocessing
 
+DIR = os.path.dirname(__file__)
 logger = logging.getLogger(__name__)
 timeout = 10
+
+class Error(Exception):
+    pass
+
+class DieFile(Error):
+    pass
 
 class Checker(threading.Thread):
     valid = None
@@ -114,6 +122,7 @@ def _process_object(repo, object):
     global count
     count += 1
     if not count % 10000:
+        check_for_die_file()
         logger.info('About to process object %d for %s (object is %s)' % (count,
                                                                           repo,
                                                                           object))
@@ -172,10 +181,12 @@ def _process_data(repo, uncompressed_pack):
         o.add_repository(repo)
         o.save()
     models.flush()
+    check_for_die_file()
 
     logger.info('Now processing objects for %s' % repo)
     for object in uncompressed_pack.iterobjects():
         _process_object(repo=repo, object=object)
+    check_for_die_file()
 
     logger.info('Marking objects complete for %s' % repo)
     for object in uncompressed_pack.iterobjects():
@@ -186,6 +197,7 @@ def _process_data(repo, uncompressed_pack):
         else:
             o.mark_complete()
             o.save()
+    check_for_die_file()
 
 def index_data(data, repo, is_path=False):
     if is_path:
@@ -200,6 +212,7 @@ def index_data(data, repo, is_path=False):
     _process_data(repo, objects_iterator)
 
 def fetch_and_index(repo, recover_mode=False):
+    check_for_die_file()
     if isinstance(repo, str) or isinstance(repo, unicode):
         repo = models.Repository.get(repo)
     repo.refresh()
@@ -232,7 +245,11 @@ def fetch_and_index(repo, recover_mode=False):
 
 def fetch_and_index_threaded(repo):
     models.setup()
-    return fetch_and_index(repo)
+    try:
+        return fetch_and_index(repo)
+    except DieFile:
+        # TODO: do something to terminate the controller process too
+        sys.exit(1)
 
 def index_all(last_index=None, threads=1):
     repos = list(models.Repository.get_indexed_before(last_index))
@@ -243,3 +260,8 @@ def index_all(last_index=None, threads=1):
         pool.map(fetch_and_index_threaded, repo_ids)
     else:
         [fetch_and_index(repo) for repo in repos]
+
+def check_for_die_file():
+    if os.path.exists(os.path.join(DIR, 'die')):
+        logger.info('Die file encountered; exiting')
+        raise DieFile('Die file encountered')
