@@ -233,7 +233,11 @@ class MongoDbModel(object):
         if count == 1:
             result = results.next()
             if cls != GitObject:
-                assert isinstance(result, cls)
+                try:
+                    assert isinstance(result, cls)
+                except AssertionError:
+                    logger.critical('Corrupt data %s, should be a %s' % (result, cls.__name__))
+                    raise
             return result
         elif count == 0:
             raise exceptions.DoesNotExist('%s: %s' % (cls.__name__, kwargs))
@@ -520,7 +524,7 @@ class Tag(GitObject, common.CommonTagMixin):
 
     def set_object(self, o_id):
         o_id = canonicalize_to_id(o_id)
-        self.object_id = o_id
+        self._set('object_id', o_id)
 
     @property
     def object(self):

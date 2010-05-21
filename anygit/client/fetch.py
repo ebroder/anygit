@@ -123,6 +123,7 @@ def _process_object(repo, object, progress):
     if object._type == 'tree':
         try:
             t = models.Tree.get(id=object.id)
+            assert t.type == 'tree'
         except exceptions.DoesNotExist:
             logger.error('Apparently %s does not exist in %s...' % (object.id, repo))
         else:
@@ -138,6 +139,7 @@ def _process_object(repo, object, progress):
                     t.add_child(child)
                 else:
                     assert child.type == 'commit'
+                    assert t.type == 'tree'
                     child.add_as_submodule_of(t, name=name)
                     t.add_submodule(child)
                 child.save()
