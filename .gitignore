@@ -6,6 +6,5 @@ development.db
 anygit.egg-info
 data
 lib
-conf/anygit.ini
 conf/anygit-client.key
 web_scripts/development.log
