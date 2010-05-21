@@ -24,9 +24,18 @@ def get_view_url_for(repo, obj):
     if match:
         values = {'user' : match.group(1),
                   'repo' : match.group(2),
-                  'sha1' : obj.id}
-        if obj.type in github_mapper:
-            return github_mapper[obj.type] % values
+                  'sha1' : obj.id,
+                  'type' : obj.type}
+        if obj.type == 'commit':
+            return 'http://github.com/%(user)s/%(repo)s/commit/%(sha1)s' % values
+        elif obj.type == 'tree' or obj.type == 'blob':
+            commit, path = obj.get_path(repo)
+            values['path'] = path
+            values['commit_sha1'] = commit.id
+            return 'http://github.com/%(user)s/%(repo)s/%(type)s/%(commit_sha1)s/%(path)s' % values
+        elif obj.type == 'tag':
+            return get_view_url_for(repo, obj.object)
+            
     
 def pluralize(number, singular, plural=None):
     if plural is None:

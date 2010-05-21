@@ -61,14 +61,32 @@
     </ul>
     </p>
 
-    <p> Additionally, this tree comes from the following 
-    ${h.pluralize(len(object.commit_ids), 'commit')}: </p>
+
+    % if object.commit_ids:
+      <p> Additionally, this tree comes from the following  
+      ${h.pluralize(len(object.commit_ids), 'commit')}: </p>
+      <ul>
+      % for commit in object.commits:
+         <li> ${self.link_to_object(commit)} </li>
+      % endfor
+      </ul>
+      </p>
+    % else:
+      <p> It is not the tree of any commit. </p>
+    % endif
+
+    % if object.parent_ids:
+    <p> Finally, it is a subtree of the following 
+    ${h.pluralize(len(object.parent_ids), 'tree')}: </p>
     <ul>
-    % for commit in object.commits:
-      <li> ${self.link_to_object(commit)} </li>
+    % for tree in object.parents:
+      <li> ${self.link_to_object(tree)} </li>
     % endfor
     </ul>
     </p>
+    % else:
+    <p> It is not a subtree of any tree. </p>
+    % endif
 
   % elif object.type == 'tag':
     <% parents = object.repositories %>
@@ -83,7 +101,6 @@
   % else:
     <% raise ValueError('Unrecognized type for %s' % object) %>
   % endif
-
 % else:
 
 % if not c.out_of_range:
@@ -115,15 +132,25 @@
 % elif object.type == 'blob':
 <li>
   Blob ${self.link_to_object(object)} comes from
-  ${h.pluralize(len(object.parent_ids), 'tree')},
-  ${h.pluralize(len(object.commit_ids), 'commit')}, and
+  ${h.pluralize(len(object.parent_ids), 'tree')} and
   ${h.pluralize(len(object.repository_ids), 'repository', 'repositories')}.
 </li>
 % elif object.type == 'tree':
 <li>
   Tree ${self.link_to_object(object)} comes from 
-  ${h.pluralize(len(object.commit_ids), 'commit')}, and
-  ${h.pluralize(len(object.repository_ids), 'repository', 'repositories')}.
+  % if object.commit_ids and object.parent_ids:
+    ${h.pluralize(len(object.commit_ids), 'commit')},
+    ${h.pluralize(len(object.parent_ids), 'parent tree')}, and
+    ${h.pluralize(len(object.repository_ids), 'repository', 'repositories')}.
+  % elif object.commit_ids:
+    ${h.pluralize(len(object.commit_ids), 'commit')} and
+    ${h.pluralize(len(object.repository_ids), 'repository', 'repositories')}.
+  % elif object.parent_ids:
+    ${h.pluralize(len(object.parent_ids), 'parent tree')} and
+    ${h.pluralize(len(object.repository_ids), 'repository', 'repositories')}.
+  % else:
+    ${h.pluralize(len(object.repository_ids), 'repository', 'repositories')}.
+  % endif
 </li>
 % elif object.type == 'tag':
 <li>

@@ -70,6 +70,19 @@ class CommonRepositoryMixin(CommonMixin):
         if not self.url:
             self.error("url", "Must provide a url")
 
+    def type(self):
+        if github_re.search(self.url):
+            return 'github'
+        return None
+
+    def linkable(self, obj):
+        if self.type == 'github':
+            return obj.type == 'commit'
+
+    def displayable(self, obj):
+        if self.type == 'github':
+            return True
+
     @property
     def _parsed_url(self):
         stripped_url = re.sub('^[^:]*:', '', self.url)
@@ -98,13 +111,36 @@ class CommonGitObjectMixin(CommonMixin):
         if not self.id:
             self.error("id", "Must provide an id")
 
-
 class CommonBlobMixin(CommonGitObjectMixin):
-    pass
+    def get_path(self, repo):
+        assert repo.id in self.repository_ids
+        # Ok, recurse.
+        for parent, name in self.parents_with_names:
+            if repo.id in parent.repository_ids:
+                commit, base = parent.get_path(repo)
+                if base:
+                    return (commit, '%s/%s' % (base, name))
+                else:
+                    return (commit, name)
+
 
 
 class CommonTreeMixin(CommonGitObjectMixin):
-    pass
+    def get_path(self, repo):
+        assert repo.id in self.repository_ids
+        # See if I have any commits from this repo.
+        for commit in self.commits:
+            if repo.id in commit.repository_ids:
+                return (commit, '')
+
+        # Ok, then recurse.
+        for parent, name in self.parents_with_names:
+            if repo.id in parent.repository_ids:
+                commit, base = parent.get_path(repo)
+                if base:
+                    return (commit, '%s/%s' % (base, name))
+                else:
+                    return (commit, name)
 
 
 class CommonCommitMixin(CommonGitObjectMixin):

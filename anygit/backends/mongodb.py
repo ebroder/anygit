@@ -411,6 +411,10 @@ class Blob(GitObject, common.CommonBlobMixin):
     def parents(self):
         return Tree.find_matching(self.parent_ids)
 
+    @property
+    def parents_with_names(self):
+        return set((Tree.get(id), name) for (id, name) in self.parent_ids_with_names)
+
     def add_repository(self, repository_id, recursive=False):
         repository_id = canonicalize_to_id(repository_id)
         self._add_to_set('repository_ids', repository_id)
@@ -473,6 +477,10 @@ class Tree(GitObject, common.CommonTreeMixin):
         mongo_object['submodule_ids'] = list(self.submodule_ids)
         mongo_object['parent_ids_with_names'] = [list(entry) for entry in self.parent_ids_with_names]
         return mongo_object
+
+    @property
+    def parents_with_names(self):
+        return set((Tree.get(id), name) for (id, name) in self.parent_ids_with_names)
 
     def add_repository(self, repository_id, recursive=False):
         repository_id = canonicalize_to_id(repository_id)
