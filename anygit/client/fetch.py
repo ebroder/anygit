@@ -62,8 +62,8 @@ def fetch(repo, recover_mode=False, discover_only=False):
 
         if not recover_mode:
             # Strictly speaking, this only needs to return strings.
-            matching_commits = set(c.id for c in models.Commit.find_matching(refs_dict.itervalues())
-                                   if c.complete)
+            matching_commits = set(c.id for c in models.Commit.find_matching(refs_dict.itervalues(),
+                                                                             complete=True))
         else:
             matching_commits = set()
         remote_heads = set(v for k, v in refs_dict.iteritems() if '^{}' not in k)
@@ -117,15 +117,9 @@ def _get_objects_iterator(data, is_path):
     uncompressed_pack = pack.Pack.from_objects(pack_data, None)
     return uncompressed_pack
 
-count = 0
-def _process_object(repo, object):
-    global count
-    count += 1
-    if not count % 10000:
-        check_for_die_file()
-        logger.info('About to process object %d for %s (object is %s)' % (count,
-                                                                          repo,
-                                                                          object))
+def _process_object(repo, object, progress):
+    progress(object)
+
     if object._type == 'tree':
         try:
             t = models.Tree.get(id=object.id)
@@ -141,11 +135,12 @@ def _process_object(repo, object):
                     child = models.Commit.get_or_create(id=sha1)
                 if child.type in ['tree', 'blob']:
                     child.add_parent(t, name=name)
+                    t.add_child(child)
                 else:
                     assert child.type == 'commit'
                     child.add_as_submodule_of(t, name=name)
+                    t.add_submodule(child)
                 child.save()
-                t.add_child(child)
             t.save()
     elif object._type == 'commit':
         try:
@@ -154,30 +149,41 @@ def _process_object(repo, object):
             c.add_parents(object.parents)
             c.save()
 
-            child = models.Tree.get_or_create(id=object.tree)
+            child = models.Tree.get(id=object.tree)
             child.add_commit(c)
             child.save()
         except exceptions.DoesNotExist, e:
-            logger.critical('Had trouble with %s, error:\n%s!' % (object, traceback.format_exc(e)))
+            logger.critical('Had trouble with %s %s from repo %s, error:\n%s!' %
+                            (object._type, object.id, repo, traceback.format_exc(e)))
+            raise
     elif object._type == 'tag':
-        t = models.Tag.get_or_create(id=object.id)
-        t.add_repository(repo, recursive=False)
-        t.save()
+        try:
+            t = models.Tag.get(id=object.id)
+        except exceptions.DoesNotExist, e:
+            logger.critical('Had trouble with %s %s from repo %s, error:\n%s!' %
+                            (object._type, object.id, repo, traceback.format_exc(e)))
+            raise
+        else:
+            t.add_repository(repo, recursive=False)
+            t.save()
 
-
-def _process_data(repo, uncompressed_pack):
+def _process_data(repo, uncompressed_pack, progress):
     logger.info('Starting object creation for %s' % repo)
     for obj in uncompressed_pack.iterobjects():
         if obj._type == 'blob':
             o = models.Blob.get_or_create(id=obj.id)
+            assert o.type == 'blob'
         elif obj._type == 'tree':
             o = models.Tree.get_or_create(id=obj.id)
+            assert o.type == 'tree'
         elif obj._type == 'commit':
             o = models.Commit.get_or_create(id=obj.id)
+            assert o.type == 'commit'
         elif obj._type == 'tag':
             o = models.Tag.get_or_create(id=obj.id)
+            assert o.type == 'tag'
         else:
-            raise ValueEror('Unrecognized type %s' % object_type)
+            raise ValueEror('Unrecognized type %s' % obj._type)
         o.add_repository(repo)
         o.save()
     models.flush()
@@ -185,7 +191,7 @@ def _process_data(repo, uncompressed_pack):
 
     logger.info('Now processing objects for %s' % repo)
     for object in uncompressed_pack.iterobjects():
-        _process_object(repo=repo, object=object)
+        _process_object(repo=repo, object=object, progress=progress)
     check_for_die_file()
 
     logger.info('Marking objects complete for %s' % repo)
@@ -209,7 +215,15 @@ def index_data(data, repo, is_path=False):
         logger.error('No data to index')
         return
     objects_iterator = _get_objects_iterator(data, is_path)
-    _process_data(repo, objects_iterator)
+    counter = {'count' : 0}
+    def progress(object):
+        counter['count'] += 1
+        if not counter['count'] % 10000:
+            check_for_die_file()
+            logger.info('About to process object %d for %s (object is %s)' % (counter['count'],
+                                                                              repo,
+                                                                              object))
+    _process_data(repo, objects_iterator, progress)
 
 def fetch_and_index(repo, recover_mode=False):
     check_for_die_file()

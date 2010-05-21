@@ -55,32 +55,20 @@ def flush():
     classes = [GitObject]
     for klass in classes:
         logger.debug('Saving %d objects for %s...' % (len(klass._save_list), klass.__name__))
-        insert_list = set()
-        update_list = set()
+
         for instance in klass._save_list:
-            if instance.new:
-                insert_list.add(instance)
-            elif instance._pending_updates:
-                update_list.add(instance)
-            else:
-                # logger.debug('Skipping unchanged object %s' % instance)
-                pass
+            klass._object_store.update({'_id' : instance.id},
+                                       instance.get_updates(),
+                                       upsert=True)
+            instance.mark_saved()
+            instance.new = False
             instance._pending_save = False
             instance._changed = False
+            instance._pending_updates.clear()
         klass._save_list.clear()
         klass._cache.clear()
-        
-        if insert_list:
-            klass._object_store.insert(insert_list)
-            for instance in insert_list:
-                instance.new = False
-        for instance in update_list:
-            klass._object_store.update({'_id' : instance.id},
-                                       instance._pending_updates)
-            instance._pending_updates.clear()
         logger.debug('Saving %s complete.' % klass.__name__)
 
-            
 def destroy_session():
     if connection is not None:
         connection.disconnect()
@@ -279,7 +267,7 @@ class MongoDbModel(object):
         global curr_transaction_window
         self.validate()
         if not self._errors:
-            if not self.changed:
+            if not (self.changed or self.new):
                 return True
             elif self.batched:
                 self._cache[self.id] = self
@@ -319,15 +307,23 @@ class MongoDbModel(object):
         return instance
 
     @classmethod
-    def find_matching(cls, ids):
+    def find_matching(cls, ids, **kwargs):
         """Given a list of ids, find the matching objects"""
-        return cls._object_store.find({'_id' : { '$in' : list(ids) }})
+        kwargs.update({'_id' : { '$in' : list(ids) }})
+        return cls._object_store.find(kwargs)
 
     @classmethod
     def count(cls, **kwargs):
         """Find the number of objects that match the given criteria"""
         kwargs['__type__'] = cls.__name__.lower()
         return cls._object_store.find(kwargs).count()
+
+    def get_updates(self):
+        if self.new:
+            # Hack to add *something* for new insertions
+            return {'$set' : {'__type__' : type(self).__name__.lower() }}
+        else:
+            return self._pending_updates
 
     def __str__(self):
         return '%s: %s' % (self.type, self.id)
@@ -369,9 +365,22 @@ class GitObject(MongoDbModel, common.CommonGitObjectMixin):
         count = results.count()
         return results.skip(offset).limit(limit), count
 
+    @classmethod
+    def all(cls):
+        if cls == GitObject:
+            return cls._object_store.find()
+        else:
+            return super(GitObject, cls).all()
+
     def mark_complete(self):
         self.complete = True
         self._set('complete', True)
+
+    def mark_saved(self):
+        self.new = False
+        self._pending_save = False
+        self._changed = False
+        self._pending_updates.clear()
 
     @property
     def repositories(self):
@@ -404,7 +413,7 @@ class Blob(GitObject, common.CommonBlobMixin):
     def parents(self):
         return Tree.find_matching(self.parent_ids)
 
-    def add_repository(self, repository_id):
+    def add_repository(self, repository_id, recursive=False):
         repository_id = canonicalize_to_id(repository_id)
         self._add_to_set('repository_ids', repository_id)
 
@@ -415,15 +424,15 @@ class Tree(GitObject, common.CommonTreeMixin):
     abstract = False
     # Attributes: subtree_ids, blob_ids, parent_ids
     commit_ids = make_persistent_set()
+    submodule_ids = make_persistent_set()
     parent_ids_with_names = make_persistent_set()
     children_ids = make_persistent_set()
 
     def add_parent(self, parent_id, name):
         """Give this tree a parent.  Also updates the parent to know
         about this tree."""
-        parent_id, parent = canonicalize_to_object(parent_id)
+        parent_id = canonicalize_to_id(parent_id)
         self._add_to_set('parent_ids_with_names', (parent_id, name))
-        parent.save()
 
     def add_commit(self, commit_id):
         commit_id = canonicalize_to_id(commit_id)
@@ -432,6 +441,10 @@ class Tree(GitObject, common.CommonTreeMixin):
     def add_child(self, child_id):
         child_id = canonicalize_to_id(child_id)
         self._add_to_set('children_ids', child_id)
+
+    def add_submodule(self, submodule_id):
+        submodule_id = canonicalize_to_id(submodule_id)
+        self._add_to_set('submodule_ids', submodule_id)
 
     @property
     def commits(self):
@@ -449,12 +462,17 @@ class Tree(GitObject, common.CommonTreeMixin):
     def children(self):
         return GitObject.find_matching(self.children_ids)
 
+    @property
+    def submodules(self):
+        return Commit.find_matching(self.submodule_ids)
+
     def mongofy(self, mongo_object=None):
         if mongo_object is None:
             mongo_object = {}
         super(Tree, self).mongofy(mongo_object)
         mongo_object['commit_ids'] = list(self.commit_ids)
         mongo_object['children_ids'] = list(self.children_ids)
+        mongo_object['submodule_ids'] = list(self.submodule_ids)
         mongo_object['parent_ids_with_names'] = [list(entry) for entry in self.parent_ids_with_names]
         return mongo_object
 
