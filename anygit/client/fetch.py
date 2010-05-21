@@ -109,75 +109,83 @@ def _get_objects_iterator(data, is_path):
     uncompressed_pack = pack.Pack.from_objects(pack_data, None)
     return uncompressed_pack
 
+count = 0
+def _process_object(repo, object):
+    global count
+    count += 1
+    if not count % 10000:
+        logger.info('About to process object %d for %s (object is %s)' % (count,
+                                                                          repo,
+                                                                          object))
+    if object._type == 'tree':
+        try:
+            t = models.Tree.get(id=object.id)
+        except exceptions.DoesNotExist:
+            logger.error('Apparently %s does not exist in %s...' % (object.id, repo))
+        else:
+            for name, mode, sha1 in object.iteritems():
+                try:
+                    child = models.GitObject.get(sha1)
+                except exceptions.DoesNotExist:
+                    logger.info("Could not find child %s of %s in repo %s, assuming "
+                                "it's a commit from a submodule" % (sha1, t.id, repo))
+                    child = models.Commit.get_or_create(id=sha1)
+                if child.type in ['tree', 'blob']:
+                    child.add_parent(t, name=name)
+                else:
+                    assert child.type == 'commit'
+                    child.add_as_submodule_of(t, name=name)
+                child.save()
+                t.add_child(child)
+            t.save()
+    elif object._type == 'commit':
+        try:
+            c = models.Commit.get(id=object.id)
+            c.set_tree(object.tree)
+            c.add_parents(object.parents)
+            c.save()
+
+            child = models.Tree.get_or_create(id=object.tree)
+            child.add_commit(c)
+            child.save()
+        except exceptions.DoesNotExist, e:
+            logger.critical('Had trouble with %s, error:\n%s!' % (object, traceback.format_exc(e)))
+    elif object._type == 'tag':
+        t = models.Tag.get_or_create(id=object.id)
+        t.add_repository(repo, recursive=False)
+        t.save()
+
+
 def _process_data(repo, uncompressed_pack):
     logger.info('Starting object creation for %s' % repo)
     for obj in uncompressed_pack.iterobjects():
-        object_type = obj._type
-        if object_type == 'blob':
-            models.Blob.create_if_not_exists(id=obj.id)
-        elif object_type == 'tree':
-            models.Tree.create_if_not_exists(id=obj.id)
-        elif object_type == 'commit':
-            models.Commit.create_if_not_exists(id=obj.id)
-        elif object_type == 'tag':
-            models.Tag.create_if_not_exists(id=obj.id)
+        if obj._type == 'blob':
+            o = models.Blob.get_or_create(id=obj.id)
+        elif obj._type == 'tree':
+            o = models.Tree.get_or_create(id=obj.id)
+        elif obj._type == 'commit':
+            o = models.Commit.get_or_create(id=obj.id)
+        elif obj._type == 'tag':
+            o = models.Tag.get_or_create(id=obj.id)
         else:
             raise ValueEror('Unrecognized type %s' % object_type)
+        o.add_repository(repo)
+        o.save()
     models.flush()
 
-    logger.info('Setting tree children for %s' % repo)
-    trees = iter(o for o in uncompressed_pack.iterobjects() if o._type == 'tree')
-    for tree in trees:
-        try:
-            t = models.Tree.get(id=tree.id)
-        except exceptions.DoesNotExist:
-            logger.error('Apparently %s does not exist in %s...' % (tree.id, repo))
-            continue
-        for name, mode, sha1 in tree.iteritems():
-            try:
-                child = models.GitObject.get(sha1)
-            except exceptions.DoesNotExist:
-                logger.error("Could not find child %s of %s in repo %s, assuming "
-                             "it's a commit from a submodule" % (sha1, t.id, repo))
-                child = models.Commit.get_or_create(id=sha1)
-            if child.type in ['tree', 'blob']:
-                child.add_parent(t, name=name)
-            else:
-                assert child.type == 'commit'
-                child.add_as_submodule_of(t, name=name)
-            child.save()
+    logger.info('Now processing objects for %s' % repo)
+    for object in uncompressed_pack.iterobjects():
+        _process_object(repo=repo, object=object)
 
-    logger.info('Starting commit indexing for %s' % repo)
-    commits = iter(o for o in uncompressed_pack.iterobjects() if o._type == 'commit')
-    for commit in commits:
-        try:
-            c = models.Commit.get(id=commit.id)
-            c.add_repository(repo, recursive=False)
-            c.add_tree(commit.tree, recursive=True)
-            c.add_parents(commit.parents)
-        except exceptions.DoesNotExist, e:
-            logger.error('Had trouble with %s, error:\n%s!' % (commit, traceback.format_exc(e)))
-        else:
-            c.save()
-
-    # TODO: might be able to del commits and go from there.
     logger.info('Marking objects complete for %s' % repo)
     for object in uncompressed_pack.iterobjects():
         try:
             o = models.GitObject.get(id=object.id)
         except exceptions.DoesNotExist:
-            logger.error('Could not find object %s!' % object.id)
+            logger.critical('Could not find object %s!' % object.id)
         else:
             o.mark_complete()
             o.save()
-
-    logger.info('Adding tags for %s' % repo)
-    tags = iter(o for o in uncompressed_pack.iterobjects() if o._type == 'tag')
-    for tag in tags:
-        t = models.Tag.get_or_create(id=tag.id)
-        t.add_repository(repo, recursive=False)
-        t.set_object(tag.get_object()[1])
-        t.save()
 
 def index_data(data, repo, is_path=False):
     if is_path:

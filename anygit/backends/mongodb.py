@@ -347,12 +347,14 @@ class GitObject(MongoDbModel, common.CommonGitObjectMixin):
     # Attributes: complete
     _save_list = set()
     _cache = {}
+    repository_ids = make_persistent_set()
 
     complete = make_persistent_attribute()
 
     def mongofy(self, mongo_object):
         super(GitObject, self).mongofy(mongo_object)
         mongo_object['complete'] = self.complete
+        mongo_object['repository_ids'] = list(self.repository_ids)
         return mongo_object
 
     @classmethod
@@ -370,6 +372,11 @@ class GitObject(MongoDbModel, common.CommonGitObjectMixin):
     def mark_complete(self):
         self.complete = True
         self._set('complete', True)
+
+    @property
+    def repositories(self):
+        return Repository.find_matching(self.repository_ids)
+
 
 class Blob(GitObject, common.CommonBlobMixin):
     """Represents a git Blob.  Has an id (the sha1 that identifies this
@@ -397,29 +404,9 @@ class Blob(GitObject, common.CommonBlobMixin):
     def parents(self):
         return Tree.find_matching(self.parent_ids)
 
-    @property
-    def commit_ids(self):
-        # TODO: do a group
-        commit_ids = set()
-        for tree in self.parents:
-            commit_ids.update(tree.commit_ids)
-        return commit_ids
-
-    @property
-    def commits(self):
-        return Commit.find_matching(self.commit_ids)
-
-    @property
-    def repository_ids(self):
-        # TODO: do a group
-        repo_ids = set()
-        for commit in self.commits:
-            repo_ids.update(commit.repository_ids)
-        return repo_ids
-
-    @property
-    def repositories(self):
-        return Repository.find_matching(self.repository_ids)
+    def add_repository(self, repository_id):
+        repository_id = canonicalize_to_id(repository_id)
+        self._add_to_set('repository_ids', repository_id)
 
 
 class Tree(GitObject, common.CommonTreeMixin):
@@ -429,6 +416,7 @@ class Tree(GitObject, common.CommonTreeMixin):
     # Attributes: subtree_ids, blob_ids, parent_ids
     commit_ids = make_persistent_set()
     parent_ids_with_names = make_persistent_set()
+    children_ids = make_persistent_set()
 
     def add_parent(self, parent_id, name):
         """Give this tree a parent.  Also updates the parent to know
@@ -440,6 +428,10 @@ class Tree(GitObject, common.CommonTreeMixin):
     def add_commit(self, commit_id):
         commit_id = canonicalize_to_id(commit_id)
         self._add_to_set('commit_ids', commit_id)
+
+    def add_child(self, child_id):
+        child_id = canonicalize_to_id(child_id)
+        self._add_to_set('children_ids', child_id)
 
     @property
     def commits(self):
@@ -453,24 +445,28 @@ class Tree(GitObject, common.CommonTreeMixin):
     def parents(self):
         return Tree.find_matching(self.parent_ids)
 
+    @property
+    def children(self):
+        return GitObject.find_matching(self.children_ids)
+
     def mongofy(self, mongo_object=None):
         if mongo_object is None:
             mongo_object = {}
         super(Tree, self).mongofy(mongo_object)
         mongo_object['commit_ids'] = list(self.commit_ids)
+        mongo_object['children_ids'] = list(self.children_ids)
         mongo_object['parent_ids_with_names'] = [list(entry) for entry in self.parent_ids_with_names]
         return mongo_object
 
-    @property
-    def repository_ids(self):
-        repo_ids = set()
-        for commit in self.commits:
-            repo_ids.update(commit.repository_ids)
-        return repo_ids
-
-    @property
-    def repositories(self):
-        return Repository.find_matching(self.repository_ids)
+    def add_repository(self, repository_id, recursive=False):
+        repository_id = canonicalize_to_id(repository_id)
+        if repository_id in self.repository_ids:
+            return
+        self._add_to_set('repository_ids', repository_id)
+        if recursive:
+            self.save()
+            for obj in self.children:
+                obj.add_repository(repository_id, recursive=True)
 
 
 class Tag(GitObject, common.CommonTagMixin):
@@ -478,17 +474,16 @@ class Tag(GitObject, common.CommonTagMixin):
     object)"""
     abstract = False
     # Attributes: object_id, repository_ids
-    # Should upgrade this someday to point to arbitrary objects.
     object_id = make_persistent_attribute()
-    repository_ids = make_persistent_set()
 
-    def add_repository(self, remote_id, recursive=False):
-        remote_id = canonicalize_to_id(remote_id)
-        if remote_id not in self.repository_ids:
-            self._add_to_set('repository_ids', remote_id)
-            if recursive:
-                # If you're calling this recursively, then you are committing
-                self.save()
+    def add_repository(self, repository_id, recursive=False):
+        repository_id = canonicalize_to_id(repository_id)
+        if repository_id in self.repository_ids:
+            return
+        self._add_to_set('repository_ids', repository_id)
+        if recursive:
+            self.save()
+            self.object.add_repository(repository_id, recursive=True)
 
     def mongofy(self, mongo_object=None):
         if mongo_object is None:
@@ -503,34 +498,33 @@ class Tag(GitObject, common.CommonTagMixin):
         self.object_id = o_id
 
     @property
-    def repositories(self):
-        return Repository.find_matching(self.repository_ids)
+    def object(self):
+        return GitObject.get(self.object_id)
 
 
 class Commit(GitObject, common.CommonCommitMixin):
     """Represents a git Commit.  Has an id (the sha1 that identifies
     this object).  Also contains blobs, trees, and tags."""
     abstract = False
-    # tree_ids, blob_ids, parent_ids, repository_ids
+    # tree_id, parent_ids, submodule_of_with_names
+    tree_id = make_persistent_attribute()
     parent_ids = make_persistent_set()
-    repository_ids = make_persistent_set()
     submodule_of_with_names = make_persistent_set()
 
-    def add_repository(self, remote_id, recursive=False):
-        remote_id, remote = canonicalize_to_object(remote_id, cls=Repository)
-        if remote_id not in self.repository_ids:
-            self._add_to_set('repository_ids', remote_id)
-            if recursive:
-                # If you're calling this recursively, then you are committing
-                self.save()
-                logger.debug('Recursively adding %s to %s' % (remote_id, self))
-                for parent in self.parents:
-                    parent.add_repository(remote, recursive=True)
+    def add_repository(self, repository_id, recursive=False):
+        repository_id = canonicalize_to_id(repository_id)
+        if repository_id in self.repository_ids:
+            return
+        self._add_to_set('repository_ids', repository_id)
+        if recursive:
+            self.save()
+            for parent in self.parents:
+                parent.add_repository(repository_id, recursive=True)
+            self.tree.add_repository(repository_id, recursive=True)
 
-    def add_tree(self, tree_id, recursive=True):
-        tree_id, tree = canonicalize_to_object(tree_id)
-        tree.add_commit(self)
-        tree.save()
+    def set_tree(self, tree_id):
+        tree_id = canonicalize_to_id(tree_id)
+        self._set('tree_id', tree_id)
 
     def add_parent(self, parent):
         self.add_parents([parent])
@@ -547,8 +541,8 @@ class Commit(GitObject, common.CommonCommitMixin):
         if mongo_object is None:
             mongo_object = {}
         super(Commit, self).mongofy(mongo_object)
+        mongo_object['tree_id'] = self.tree_id
         mongo_object['parent_ids'] = list(self.parent_ids)
-        mongo_object['repository_ids'] = list(self.repository_ids)
         mongo_object['submodule_of_with_names'] = [list(entry) for entry in self.submodule_of_with_names]
         return mongo_object
 
@@ -561,8 +555,9 @@ class Commit(GitObject, common.CommonCommitMixin):
         return Commit.find_matching(self.parent_ids)
 
     @property
-    def repositories(self):
-        return Repository.find_matching(self.repository_ids)
+    def tree(self):
+        return Tree.get(self.tree_id)
+
 
 class Repository(MongoDbModel, common.CommonRepositoryMixin):
     """A git repository.  Contains many commits."""
