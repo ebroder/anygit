@@ -48,7 +48,7 @@
 </html>
 
 <%def name="header()">
-    Hello world
+    Welcome to anygit, indexing the world's git repositories since 2010.
 </%def>
 
 <%def name="footer()">

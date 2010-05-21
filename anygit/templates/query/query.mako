@@ -22,30 +22,22 @@
       </ul>
 
   % elif object.type == 'blob':
-    <% parents = object.repositories %>
+    <% repos = object.repositories %>
     <p> Blob ${self.link_to_object(object)} has been found in the following
-    ${h.pluralize(parents.count(), 'repository', 'repositories')}: </p>
+    ${h.pluralize(repos.count(), 'repository', 'repositories')}: </p>
     <ul>
-    % for parent in parents:
-      <li> ${self.link_to_view(parent, object)} </li>
+    % for repo in repos:
+      <li> ${self.link_to_view(repo, object)} </li>
     % endfor
     </ul>
     </p>
 
-    <p> Additionally, this blob comes from the following 
-    ${h.pluralize(len(object.commit_ids), 'commit')}: </p>
-    <ul>
-    % for commit in object.commits:
-      <li> ${self.link_to_object(commit)} </li>
-    % endfor
-    </ul>
-    </p>
-
-    <p> Finally, this blob comes from the following 
-    ${h.pluralize(len(object.parent_ids), 'tree')}: </p>
+    <p> Also, this blob comes from the following 
+    ${h.pluralize(len(object.parent_ids), 'tree')}.  Its filename is
+    ${', '.join(object.names)}: </p>
     <ul>
     % for tree in object.parents:
-      <li> ${self.link_to_object(tree)} </li>
+      <li> ${self.link_to_object(tree)}. </li>
     % endfor
     </ul>
     </p>
@@ -77,7 +69,8 @@
 
     % if object.parent_ids:
     <p> Finally, it is a subtree of the following 
-    ${h.pluralize(len(object.parent_ids), 'tree')}: </p>
+    ${h.pluralize(len(object.parent_ids), 'tree')}.  Its directory name is
+    ${', '.join(object.names)}: </p>
     <ul>
     % for tree in object.parents:
       <li> ${self.link_to_object(tree)} </li>
@@ -89,15 +82,16 @@
     % endif
 
   % elif object.type == 'tag':
-    <% parents = object.repositories %>
+    <% repos = object.repositories %>
     <p> Tag ${self.link_to_object(object)} has been found in the following
-    ${h.pluralize(parents.count(), 'repository', 'repositories')}: </p>
+    ${h.pluralize(repos.count(), 'repository', 'repositories')}: </p>
     <ul>
-    % for parent in parents:
-      <li> ${self.link_to_view(parent, object)} </li>
+    % for repo in repos:
+      <li> ${self.link_to_view(repo, object)} </li>
     % endfor
     </ul>
     </p>
+
   % else:
     <% raise ValueError('Unrecognized type for %s' % object) %>
   % endif
@@ -106,7 +100,7 @@
 % if not c.out_of_range:
   <p> You queried for git objects with prefix <b>${c.queried_id}</b>.  Showing results
    <b>${c.start}-${c.end}</b> of <b>${c.count}</b>.
-
+  Pages: 
 % for i in range(c.page - 4, c.page + 3):
   % if i < 0:
     <% continue %>

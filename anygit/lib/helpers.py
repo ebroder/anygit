@@ -29,7 +29,11 @@ def get_view_url_for(repo, obj):
         if obj.type == 'commit':
             return 'http://github.com/%(user)s/%(repo)s/commit/%(sha1)s' % values
         elif obj.type == 'tree' or obj.type == 'blob':
-            commit, path = obj.get_path(repo)
+            path_pair = obj.get_path(repo)
+            # Could be in the middle of indexing
+            if not path_pair:
+                return None
+            commit, path = path_pair
             values['path'] = path
             values['commit_sha1'] = commit.id
             return 'http://github.com/%(user)s/%(repo)s/%(type)s/%(commit_sha1)s/%(path)s' % values

@@ -413,6 +413,10 @@ class Blob(GitObject, common.CommonBlobMixin):
         return set(id for (id, name) in self.parent_ids_with_names)
 
     @property
+    def names(self):
+        return set(name for (id, name) in self.parent_ids_with_names)
+
+    @property
     def parents(self):
         return Tree.find_matching(self.parent_ids)
 
@@ -460,6 +464,10 @@ class Tree(GitObject, common.CommonTreeMixin):
     @property
     def parent_ids(self):
         return set(id for (id, name) in self.parent_ids_with_names)
+
+    @property
+    def names(self):
+        return set(name for (id, name) in self.parent_ids_with_names)
 
     @property
     def parents(self):
