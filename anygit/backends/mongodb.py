@@ -119,6 +119,12 @@ def canonicalize_to_object(id, cls=None):
         raise exceptions.Error('Illegal type %s (instance %r)' % (type(id), id))
     return id, obj
 
+def convert_iterable(target, dest):
+    if not hasattr(target, '__iter__'):
+        return target
+    elif not isinstance(target, dest):
+        return dest(target)
+
 def make_persistent_set():
     backend_attr = '__%s' % hex(random.getrandbits(128))
     def _getter(self):
@@ -126,8 +132,7 @@ def make_persistent_set():
             setattr(self, backend_attr, set())
         return getattr(self, backend_attr)
     def _setter(self, value):
-        if not isinstance(value, set):
-            value = set(value)
+        value = set(convert_iterable(entry, tuple) for entry in value)
         setattr(self, backend_attr, value)
     return property(_getter, _setter)
 
@@ -371,31 +376,34 @@ class Blob(GitObject, common.CommonBlobMixin):
     object)"""
     abstract = False
     # Attributes: parent_ids.
-    parent_ids = make_persistent_set()
-    commit_ids = make_persistent_set()
+    parent_ids_with_names = make_persistent_set()
 
     def mongofy(self, mongo_object=None):
         if mongo_object is None:
             mongo_object = {}
         super(Blob, self).mongofy(mongo_object)
-        mongo_object['commit_ids'] = list(self.commit_ids)
-        mongo_object['parent_ids'] = list(self.parent_ids)
+        mongo_object['parent_ids_with_names'] = [list(entry) for entry in self.parent_ids_with_names]
         return mongo_object
 
-    def add_parent(self, parent_id):
+    def add_parent(self, parent_id, name):
         parent_id = canonicalize_to_id(parent_id)
-        self._add_to_set('parent_ids', parent_id)
-        t = Tree.get(id=parent_id)
-        t.add_blob(self)
-        t.save()
+        self._add_to_set('parent_ids_with_names', (parent_id, name))
 
-    def add_commit(self, commit_id):
-        commit_id = canonicalize_to_id(commit_id)
-        self._add_to_set('commit_ids', commit_id)
+    @property
+    def parent_ids(self):
+        return set(id for (id, name) in self.parent_ids_with_names)
 
     @property
     def parents(self):
         return Tree.find_matching(self.parent_ids)
+
+    @property
+    def commit_ids(self):
+        # TODO: do a group
+        commit_ids = set()
+        for tree in self.parents:
+            commit_ids.update(tree.commit_ids)
+        return commit_ids
 
     @property
     def commits(self):
@@ -403,6 +411,7 @@ class Blob(GitObject, common.CommonBlobMixin):
 
     @property
     def repository_ids(self):
+        # TODO: do a group
         repo_ids = set()
         for commit in self.commits:
             repo_ids.update(commit.repository_ids)
@@ -419,29 +428,13 @@ class Tree(GitObject, common.CommonTreeMixin):
     abstract = False
     # Attributes: subtree_ids, blob_ids, parent_ids
     commit_ids = make_persistent_set()
-    subtree_ids = make_persistent_set()
-    blob_ids = make_persistent_set()
-    parent_ids = make_persistent_set()
+    parent_ids_with_names = make_persistent_set()
 
-    def __str__(self):
-        return 'tree: id=%s, commits=%s, subtree=%ss' % (self.id,
-                                                         self.commit_ids,
-                                                         self.subtree_ids)
-
-    def add_blob(self, blob_id):
-        blob_id = canonicalize_to_id(blob_id)
-        self._add_to_set('blob_ids', blob_id)
-
-    def add_subtree(self, subtree_id):
-        subtree_id = canonicalize_to_id(subtree_id)
-        self._add_to_set('subtree_ids', subtree_id)
-
-    def add_parent(self, parent_id):
+    def add_parent(self, parent_id, name):
         """Give this tree a parent.  Also updates the parent to know
         about this tree."""
         parent_id, parent = canonicalize_to_object(parent_id)
-        self._add_to_set('parent_ids', parent_id)
-        parent.add_subtree(self)
+        self._add_to_set('parent_ids_with_names', (parent_id, name))
         parent.save()
 
     def add_commit(self, commit_id):
@@ -453,6 +446,10 @@ class Tree(GitObject, common.CommonTreeMixin):
         return Commit.find_matching(self.commit_ids)
 
     @property
+    def parent_ids(self):
+        return set(id for (id, name) in self.parent_ids_with_names)
+
+    @property
     def parents(self):
         return Tree.find_matching(self.parent_ids)
 
@@ -461,9 +458,7 @@ class Tree(GitObject, common.CommonTreeMixin):
             mongo_object = {}
         super(Tree, self).mongofy(mongo_object)
         mongo_object['commit_ids'] = list(self.commit_ids)
-        mongo_object['subtree_ids'] = list(self.subtree_ids)
-        mongo_object['blob_ids'] = list(self.blob_ids)
-        mongo_object['parent_ids'] = list(self.parent_ids)
+        mongo_object['parent_ids_with_names'] = [list(entry) for entry in self.parent_ids_with_names]
         return mongo_object
 
     @property
@@ -517,11 +512,9 @@ class Commit(GitObject, common.CommonCommitMixin):
     this object).  Also contains blobs, trees, and tags."""
     abstract = False
     # tree_ids, blob_ids, parent_ids, repository_ids
-    tree_ids = make_persistent_set()
-    blob_ids = make_persistent_set()
     parent_ids = make_persistent_set()
     repository_ids = make_persistent_set()
-    submodule_of = make_persistent_set()
+    submodule_of_with_names = make_persistent_set()
 
     def add_repository(self, remote_id, recursive=False):
         remote_id, remote = canonicalize_to_object(remote_id, cls=Repository)
@@ -536,24 +529,8 @@ class Commit(GitObject, common.CommonCommitMixin):
 
     def add_tree(self, tree_id, recursive=True):
         tree_id, tree = canonicalize_to_object(tree_id)
-        # Assumes the invariant that if we have added a tree before,
-        # we have added all of its children as well
-        if tree_id not in self.tree_ids:
-            self._add_to_set('tree_ids', tree_id)
-            t = Tree.get(id=tree_id)
-            t.add_commit(self.id)
-            t.save()
-            if recursive:
-                for subtree_id in tree.subtree_ids:
-                    self.add_tree(subtree_id, recursive=True)
-                for blob_id in tree.blob_ids:
-                    self.add_blob(blob_id)
-
-    def add_blob(self, blob_id):
-        blob_id, blob = canonicalize_to_object(blob_id)
-        self._add_to_set('blob_ids', blob_id)
-        blob.add_commit(self)
-        blob.save()
+        tree.add_commit(self)
+        tree.save()
 
     def add_parent(self, parent):
         self.add_parents([parent])
@@ -562,20 +539,22 @@ class Commit(GitObject, common.CommonCommitMixin):
         parent_ids = set(canonicalize_to_id(p) for p in parent_ids)
         self._add_all_to_set('parent_ids', parent_ids)
 
-    def add_as_submodule_of(self, repo_id):
+    def add_as_submodule_of(self, repo_id, name):
         repo_id = canonicalize_to_id(repo_id)
-        self._add_to_set('submodule_of', repo_id)
+        self._add_to_set('submodule_of_with_names', (repo_id, name))
 
     def mongofy(self, mongo_object=None):
         if mongo_object is None:
             mongo_object = {}
         super(Commit, self).mongofy(mongo_object)
-        mongo_object['tree_ids'] = list(self.tree_ids)
-        mongo_object['blob_ids'] = list(self.blob_ids)
         mongo_object['parent_ids'] = list(self.parent_ids)
         mongo_object['repository_ids'] = list(self.repository_ids)
-        mongo_object['submodule_of'] = list(self.submodule_of)
+        mongo_object['submodule_of_with_names'] = [list(entry) for entry in self.submodule_of_with_names]
         return mongo_object
+
+    @property
+    def submodule_of(self):
+        return set(id for (id, name) in self.submodule_of_with_names)
 
     @property
     def parents(self):

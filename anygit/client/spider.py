@@ -23,7 +23,7 @@ i = 0
 ### Github methods
 
 def fetch(url, proxy=None):
-    time.sleep(0.3)
+    time.sleep(1)
     c = pycurl.Curl()
     if proxy:
         c.setopt(pycurl.PROXY, proxy)
@@ -168,4 +168,3 @@ def kernel_spider():
         r = models.Repository.get_or_create(url=match.group(0))
         r.approved = 'spidered'
         r.save()
-

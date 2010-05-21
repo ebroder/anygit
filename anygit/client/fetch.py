@@ -133,7 +133,7 @@ def _process_data(repo, uncompressed_pack):
         except exceptions.DoesNotExist:
             logger.error('Apparently %s does not exist in %s...' % (tree.id, repo))
             continue
-        for name, child_type, sha1 in tree.iteritems():
+        for name, mode, sha1 in tree.iteritems():
             try:
                 child = models.GitObject.get(sha1)
             except exceptions.DoesNotExist:
@@ -141,10 +141,10 @@ def _process_data(repo, uncompressed_pack):
                              "it's a commit from a submodule" % (sha1, t.id, repo))
                 child = models.Commit.get_or_create(id=sha1)
             if child.type in ['tree', 'blob']:
-                child.add_parent(t)
+                child.add_parent(t, name=name)
             else:
                 assert child.type == 'commit'
-                child.add_as_submodule_of(t)
+                child.add_as_submodule_of(t, name=name)
             child.save()
 
     logger.info('Starting commit indexing for %s' % repo)
