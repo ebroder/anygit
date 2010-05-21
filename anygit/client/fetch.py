@@ -240,6 +240,7 @@ def fetch_and_index(repo, recover_mode=False):
         return
     logger.info('Beginning to index: %s' % repo)
     now = datetime.datetime.now()
+    data_path = None
     try:
         # Don't let other people try to index in parallel
         repo.indexing = True
@@ -253,6 +254,11 @@ def fetch_and_index(repo, recover_mode=False):
     except Exception, e:
         logger.error('Had a problem: %s' % traceback.format_exc())
     finally:
+        if data_path:
+            try:
+                os.unlink(data_path)
+            except IOError, e:
+                logger.error('Could not remove tmpfile %s.: %s' % (data_path, e))
         repo.indexing = False
         repo.save()
         models.flush()
