@@ -232,7 +232,8 @@ class MongoDbModel(object):
         count = results.count()
         if count == 1:
             result = results.next()
-            assert isinstance(result, cls)
+            if cls != GitObject:
+                assert isinstance(result, cls)
             return result
         elif count == 0:
             raise exceptions.DoesNotExist('%s: %s' % (cls.__name__, kwargs))
