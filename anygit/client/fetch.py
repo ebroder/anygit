@@ -225,7 +225,7 @@ def index_data(data, repo, is_path=False):
             check_for_die_file()
             logger.info('About to process object %d for %s (object is %s %s)' % (counter['count'],
                                                                                  repo,
-                                                                                 object.tree,
+                                                                                 object._type,
                                                                                  object.id))
     _process_data(repo, objects_iterator, progress)
 
