@@ -1,18 +1,27 @@
 #!/usr/bin/python
 import django.utils.autoreload
+import logging.config
 import os
 import sys
 import threading
 import time
 
+DIR = os.path.abspath(os.path.dirname(__file__))
+conf = os.path.join(DIR, '../conf/anygit.ini')
+
 sys.path.append('/mit/gdb/Scripts/anygit')
+
+log = open('/mit/gdb/web_scripts/writeable/anygit.log', 'a', 0)
+os.dup2(log.fileno(), 1)
+os.dup2(log.fileno(), 2)
+log.close()
+
+logging.config.fileConfig(conf)
 
 from flup.server.fcgi import WSGIServer
 from paste.deploy import loadapp
 
-DIR = os.path.abspath(os.path.dirname(__file__))
-conf = os.path.join(DIR, '../conf/anygit.ini')
-application = loadapp('config:%s' % conf, relative_to='/')
+application = loadapp('config:%s' % conf, relative_to='/') 
 
 def reloader_thread():
   while True:

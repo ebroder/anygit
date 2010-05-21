@@ -1,20 +1,20 @@
 import datetime
 import logging
-from pylons import config
 import pymongo
-from pymongo import son_manipulator
 import random
 import re
+import subprocess
+
+from pymongo import son_manipulator
+from pylons import config
 
 from anygit.backends import common
 from anygit.data import exceptions
-
 
 logger = logging.getLogger(__name__)
 
 max_transaction_window = 1000
 curr_transaction_window = 0
-
 connection = None
 
 ## Exported functions
@@ -48,7 +48,6 @@ def setup():
         port = int(port)
     connection = pymongo.Connection(config['mongodb.url'],
                                     port)
-    connection.anygit.authenticate(config['mongodb.username'], config['mongodb.password'])
     init_model(connection)
 
 def flush():
