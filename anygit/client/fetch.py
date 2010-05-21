@@ -145,7 +145,6 @@ def _process_object(repo, object, progress):
     elif object._type == 'commit':
         try:
             c = models.Commit.get(id=object.id)
-            c.set_tree(object.tree)
             c.add_parents(object.parents)
             c.save()
 
@@ -178,9 +177,11 @@ def _process_data(repo, uncompressed_pack, progress):
             assert o.type == 'tree'
         elif obj._type == 'commit':
             o = models.Commit.get_or_create(id=obj.id)
+            o.set_tree(obj.tree)
             assert o.type == 'commit'
         elif obj._type == 'tag':
             o = models.Tag.get_or_create(id=obj.id)
+            o.set_object(obj.get_object())
             assert o.type == 'tag'
         else:
             raise ValueEror('Unrecognized type %s' % obj._type)
