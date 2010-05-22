@@ -56,3 +56,11 @@ def pluralize(number, singular, plural=None):
         return '1 %s' % singular
     else:
         return '%d %s' % (number, plural)
+
+def liststyled(items, separator, style_left=None, style_right=None):
+    if style_left is None:
+        style_left=""
+    if style_right is None:
+        style_right=""
+    styled_objects = map((lambda x: style_left + x + style_right), items)
+    return separator.join(styled_objects)

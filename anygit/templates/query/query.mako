@@ -15,17 +15,17 @@
 
 
 % if c.objects.count() == 0:
-<p> Sorry, no objects were found with that SHA1 as a prefix. </p>
+<p> Sorry, no objects were found with <tt>${c.queried_id}</tt> as a prefix. </p>
 
 % elif c.objects.count() == 1:
 <% object = c.objects.next() %>
 % if object.dirty:
-<p> <i> Note that this object is currently being indexed; its state might appear broken. </i> </p>
+<p><i>Note that this object is currently being indexed; its state might appear broken.</i></p>
 % endif
 
   % if object.type == 'commit':
     <% parents = object.repositories %>
-    <p> Commit ${self.link_to_object(object)} appears in the following
+    <p> Commit <tt>${self.link_to_object(object)}</tt> appears in the following
     ${h.pluralize(parents.count(), 'repository', 'repositories')}: </p>
       <ul>
       % for parent in parents:
@@ -35,7 +35,7 @@
 
   % elif object.type == 'blob':
     <% repos = object.repositories %>
-    <p> Blob ${self.link_to_object(object)} has been found in the following
+    <p> Blob <tt>${self.link_to_object(object)}</tt> has been found in the following
     ${h.pluralize(repos.count(), 'repository', 'repositories')}: </p>
     <ul>
     % for repo in repos:
@@ -45,18 +45,18 @@
     </p>
 
     <p> Also, this blob comes from the following 
-    ${h.pluralize(len(object.parent_ids), 'tree')}.  Its filename is
-    ${', '.join(object.names)}: </p>
+    ${h.pluralize(len(object.parent_ids), 'tree')}. The ${h.pluralize(len(object.names), 'file')} associated with this blob are
+    ${liststyled(object.names, ', ', '<tt>', '</tt>')}: </p>
     <ul>
     % for tree in object.parents:
-      <li> ${self.link_to_object(tree)}. </li>
+      <li><tt>${self.link_to_object(tree)}</tt></li>
     % endfor
     </ul>
     </p>
 
   % elif object.type == 'tree':
     <% parents = object.repositories %>
-    <p> Tree ${self.link_to_object(object)} has been found in the following
+    <p> Tree <tt>${self.link_to_object(object)}</tt> has been found in the following
     ${h.pluralize(parents.count(), 'repository', 'repositories')}: </p>
     <ul>
     % for parent in parents:
@@ -71,7 +71,7 @@
       ${h.pluralize(len(object.commit_ids), 'commit')}: </p>
       <ul>
       % for commit in object.commits:
-         <li> ${self.link_to_object(commit)} </li>
+         <li> <tt>${self.link_to_object(commit)}</tt> </li>
       % endfor
       </ul>
       </p>
@@ -82,10 +82,10 @@
     % if object.parent_ids:
     <p> Finally, it is a subtree of the following 
     ${h.pluralize(len(object.parent_ids), 'tree')}.  Its directory name is
-    ${', '.join(object.names)}: </p>
+    ${liststyled(object.name, ', ', '<tt>', '</tt>')}: </p>
     <ul>
     % for tree in object.parents:
-      <li> ${self.link_to_object(tree)} </li>
+      <li> <tt>${self.link_to_object(tree)}</tt> </li>
     % endfor
     </ul>
     </p>
@@ -95,7 +95,7 @@
 
   % elif object.type == 'tag':
     <% repos = object.repositories %>
-    <p> Tag ${self.link_to_object(object)} has been found in the following
+    <p> Tag <tt>${self.link_to_object(object)}</tt> has been found in the following
     ${h.pluralize(repos.count(), 'repository', 'repositories')}: </p>
     <ul>
     % for repo in repos:
@@ -134,16 +134,16 @@
 
 % for object in c.objects:
 % if object.type == 'commit':
-<li> Commit ${self.link_to_object(object)} comes from ${h.pluralize(len(object.repository_ids), 'repository', 'repositories')}. </li>
+<li> Commit <tt>${self.link_to_object(object)}</tt> comes from ${h.pluralize(len(object.repository_ids), 'repository', 'repositories')}. </li>
 % elif object.type == 'blob':
 <li>
-  Blob ${self.link_to_object(object)} comes from
+  Blob <tt>${self.link_to_object(object)}</tt> comes from
   ${h.pluralize(len(object.parent_ids), 'tree')} and
   ${h.pluralize(len(object.repository_ids), 'repository', 'repositories')}.
 </li>
 % elif object.type == 'tree':
 <li>
-  Tree ${self.link_to_object(object)} comes from 
+  Tree <tt>${self.link_to_object(object)}</tt> comes from 
   % if object.commit_ids and object.parent_ids:
     ${h.pluralize(len(object.commit_ids), 'commit')},
     ${h.pluralize(len(object.parent_ids), 'parent tree')}, and
@@ -160,7 +160,7 @@
 </li>
 % elif object.type == 'tag':
 <li>
-  Tag ${self.link_to_object(object)} comes from 
+  Tag <tt>${self.link_to_object(object)}</tt> comes from 
   ${h.pluralize(len(object.repository_ids), 'repository', 'repositories')}.
 </li>
 % endif

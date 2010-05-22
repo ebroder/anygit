@@ -1,4 +1,4 @@
-1;2305;0c<%inherit file="../layouts/application.mako"/>
+<%inherit file="../layouts/application.mako"/>
 
 <%
     from pylons import url
@@ -6,18 +6,18 @@
     from anygit import models
 %>
 
-<p> Welcome to <b>anygit</b>, indexing the world's Git repositories
-one at a time.  Currently
+<p>Welcome to <b>anygit</b>, indexing the world's Git repositories
+one at a time. Currently
 <b>${models.Repository.count(been_indexed=True)}</b> repos have been
-indexed and counting.  We also have thus far indexed
+indexed and counting. We also have thus far indexed
 <b>${models.Blob.count()}</b> blobs,
 <b>${models.Tree.count()}</b> trees, and
 <b>${models.Commit.count()}</b> commits.</p>
 
-<h2> Request indexing </h2>
+<h2>Request indexing</h2>
 
 <p>
-Would you like your repository to be indexed next?
+Would you like your repository to be added to the index?
 
 <%self:form url="${url_for(controller='index', action='do_request')}">
 <p> <label for="url">Git URL:</label>
@@ -25,7 +25,7 @@ ${webhelpers.html.tags.text('url')}
 ${webhelpers.html.tags.submit('submit', 'Index me please')} </p>
 </%self:form> </p>
 
-<h2> Query </h2>
+<h2>Query</h2>
 
 <p>
 You can query for any Git object by going to <b>http://anyg.it/q/$sha1prefix</b>
