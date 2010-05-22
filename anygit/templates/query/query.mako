@@ -82,7 +82,7 @@
     % if object.parent_ids:
     <p> Finally, it is a subtree of the following 
     ${h.pluralize(len(object.parent_ids), 'tree')}.  Its directory name is
-    ${h.liststyled(object.name, ', ', '<tt>', '</tt>')}: </p>
+    ${h.liststyled(object.names, ', ', '<tt>', '</tt>')}: </p>
     <ul>
     % for tree in object.parents:
       <li> <tt>${self.link_to_object(tree)}</tt> </li>
