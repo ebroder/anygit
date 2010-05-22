@@ -1,6 +1,9 @@
+# TODO: allow this to be overriden by the environment
+MONGO_PATCH="../../patches/mongo-python-driver.patch"
+
 install:
 	mkdir -p pkgs/lib64/python
-	cd submodules/mongo-python-driver; git apply ../../patches/mongo-python-driver.patch; $(MAKE) $(MFLAGS) install
+	cd submodules/mongo-python-driver; git apply $(MONGO_PATCH); $(MAKE) $(MFLAGS) install
 
 clean:
 	-cd submodules/mongo-python-driver; $(MAKE) $(MFLAGS) clean
