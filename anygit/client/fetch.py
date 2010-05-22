@@ -200,7 +200,6 @@ def _process_data(repo, uncompressed_pack, progress):
         dirty = _objectify(id=obj.id, type=obj._type)
         dirty.mark_dirty(False)
         dirty.save()
-    models.flush()
 
 def index_data(data, repo, is_path=False):
     if is_path:
@@ -209,7 +208,7 @@ def index_data(data, repo, is_path=False):
         empty = data
 
     if empty:
-        logger.error('No data to index')
+        logger.info('No data to index')
         return
     objects_iterator = _get_objects_iterator(data, is_path)
     counter = {'count' : 0}
@@ -242,7 +241,6 @@ def fetch_and_index(repo, recover_mode=False):
         # Don't let other people try to index in parallel
         repo.indexing = True
         repo.save()
-        models.flush()
         data_path = fetch(repo, recover_mode=recover_mode)
         index_data(data_path, repo, is_path=True)
         repo.last_index = now
