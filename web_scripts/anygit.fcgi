@@ -21,7 +21,7 @@ logging.config.fileConfig(conf)
 from flup.server.fcgi import WSGIServer
 from paste.deploy import loadapp
 
-application = loadapp('config:%s' % conf, relative_to='/') 
+application = loadapp('config:%s' % conf, relative_to='/')
 
 def reloader_thread():
   while True:
