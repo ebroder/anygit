@@ -20,8 +20,6 @@ proxies = []
 start_port = 6000
 i = 0
 
-### Github methods
-
 def fetch(url, proxy=None):
     time.sleep(1)
     c = pycurl.Curl()
@@ -81,6 +79,8 @@ def yaml_curl(url):
         logger.warning('Experienced an error: %s' % result)
         result = None
     return result
+
+### Github methods
 
 def get_repos(user):
     repos = []
@@ -166,5 +166,22 @@ def kernel_spider():
     for match in repo_extractor.finditer(content):
         logger.info('Adding repo %s' % match.group(0))
         r = models.Repository.get_or_create(url=match.group(0))
+        r.approved = 'spidered'
+        r.save()
+
+# repo.or.cz spider
+
+def repo_spider():
+    logger.info('About to fetch http://repo.or.cz/?a=project_list&s=git')
+    content = fetch('http://repo.or.cz/?a=project_list&s=git')
+    logger.info('About to extract data')
+    repo_extractor = re.compile('[^\s<>]+\.git')
+    href = re.compile('^href=')
+    for match in repo_extractor.finditer(content):
+        m = match.group(0)
+        if href.search(m):
+            continue
+        logger.info('Adding repo %s' % m)
+        r = models.Repository.get_or_create(url='git://repo.or.cz/%s' % m)
         r.approved = 'spidered'
         r.save()

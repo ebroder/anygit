@@ -8,7 +8,7 @@ from anygit import clisetup
 from anygit.client import spider
 
 def main():
-    parser = optparse.OptionParser('%prog [options] {github,kernel}')
+    parser = optparse.OptionParser('%prog [options] {github,kernel,repo}')
     opts, args = parser.parse_args()
     if len(args) != 1:
         parser.print_help()
@@ -18,6 +18,8 @@ def main():
         spider.github_spider()
     elif type == 'kernel':
         spider.kernel_spider()
+    elif type == 'repo':
+        spider.repo_spider()
     else:
         parser.print_help()
         return 2
