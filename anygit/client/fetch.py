@@ -184,7 +184,8 @@ def _process_data(repo, uncompressed_pack, progress):
         dirty.mark_dirty(True)
         dirty.add_repository(repo)
         dirty.save()
-    logger.info('Constructed object type map of size %s for %s' % (len(type_mapper), repo))
+    logger.info('Constructed object type map of size %s (%d bytes) for %s' %
+                (len(type_mapper), type_mapper.__sizeof__(), repo))
 
     logger.info('Now processing objects for %s' % repo)
     for obj in uncompressed_pack.iterobjects():
