@@ -63,7 +63,7 @@ def flush():
                                            updates,
                                            upsert=True)
             except pymongo.errors.InvalidStringData:
-                logger.critical('Had some trouble saving %r' % updates)
+                logger.critical('Had some trouble saving %r for %s' % (updates, instance))
                 raise
             instance.mark_saved()
             instance.new = False
