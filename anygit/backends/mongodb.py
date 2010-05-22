@@ -175,12 +175,10 @@ class MongoDbModel(object):
     _raw_object_store = None
     _save_list = None
     batched = True
-    abstract = True
 
     # Attributes: id, type
 
     def __init__(self, _raw_dict={}, **kwargs):
-        assert not self.abstract
         rename_dict_keys(kwargs, to_backend=True)
         kwargs.update(_raw_dict)
         self._init_from_dict(kwargs)
@@ -226,9 +224,26 @@ class MongoDbModel(object):
     @classmethod
     def get(cls, id):
         """Get an item with the given primary key"""
+        cached = cls.get_from_cache(id=id)
+        if cached:
+            return cached
+        else:
+            return cls.get_by_attributes(id=id)
+
+    @classmethod
+    def get_from_cache_or_new(cls, id):
+        cached = cls.get_from_cache(id=id)
+        if cached:
+            return cached
+        else:
+            return cls(id=id)
+
+    @classmethod
+    def get_from_cache(cls, id):
         if cls._cache and id in cls._cache:
             return cls._cache[id]
-        return cls.get_by_attributes(id=id)
+        else:
+            return None
 
     @classmethod
     def get_by_attributes(cls, **kwargs):
@@ -352,12 +367,13 @@ class GitObject(MongoDbModel, common.CommonGitObjectMixin):
     _save_list = set()
     _cache = {}
     repository_ids = make_persistent_set()
-
+    tag_ids = make_persistent_set()
     complete = make_persistent_attribute()
 
     def mongofy(self, mongo_object):
         super(GitObject, self).mongofy(mongo_object)
         mongo_object['complete'] = self.complete
+        mongo_object['tag_ids'] = self.complete
         mongo_object['repository_ids'] = list(self.repository_ids)
         return mongo_object
 
@@ -394,11 +410,18 @@ class GitObject(MongoDbModel, common.CommonGitObjectMixin):
     def repositories(self):
         return Repository.find_matching(self.repository_ids)
 
+    def add_tag(self, tag_id):
+        tag_id = canonicalize_to_id(tag_id)
+        self._add_to_set('tag_ids', tag_id)
+
+    @property
+    def tags(self):
+        return Tag.find_matching(self.tag_ids)
+
 
 class Blob(GitObject, common.CommonBlobMixin):
     """Represents a git Blob.  Has an id (the sha1 that identifies this
     object)"""
-    abstract = False
     # Attributes: parent_ids.
     parent_ids_with_names = make_persistent_set()
 
@@ -437,7 +460,6 @@ class Blob(GitObject, common.CommonBlobMixin):
 class Tree(GitObject, common.CommonTreeMixin):
     """Represents a git Tree.  Has an id (the sha1 that identifies this
     object)"""
-    abstract = False
     # Attributes: subtree_ids, blob_ids, parent_ids
     commit_ids = make_persistent_set()
     submodule_ids = make_persistent_set()
@@ -514,7 +536,6 @@ class Tree(GitObject, common.CommonTreeMixin):
 class Tag(GitObject, common.CommonTagMixin):
     """Represents a git Tree.  Has an id (the sha1 that identifies this
     object)"""
-    abstract = False
     # Attributes: object_id, repository_ids
     object_id = make_persistent_attribute()
 
@@ -547,7 +568,6 @@ class Tag(GitObject, common.CommonTagMixin):
 class Commit(GitObject, common.CommonCommitMixin):
     """Represents a git Commit.  Has an id (the sha1 that identifies
     this object).  Also contains blobs, trees, and tags."""
-    abstract = False
     # tree_id, parent_ids, submodule_of_with_names
     tree_id = make_persistent_attribute()
     parent_ids = make_persistent_set()
@@ -605,7 +625,6 @@ class Repository(MongoDbModel, common.CommonRepositoryMixin):
     """A git repository.  Contains many commits."""
     _save_list = set()
     batched = False
-    abstract = False
 
     # Attributes: url, last_index, indexing, commit_ids
     url = make_persistent_attribute()

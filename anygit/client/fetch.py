@@ -19,11 +19,14 @@ DIR = os.path.dirname(__file__)
 logger = logging.getLogger(__name__)
 timeout = 10
 
+
 class Error(Exception):
     pass
 
+
 class DieFile(Error):
     pass
+
 
 class Checker(threading.Thread):
     valid = None
@@ -117,96 +120,66 @@ def _get_objects_iterator(data, is_path):
     uncompressed_pack = pack.Pack.from_objects(pack_data, None)
     return uncompressed_pack
 
-def _process_object(repo, object, progress):
-    progress(object)
+def _process_object(repo, obj, progress, type_mapper):
+    # obj is Dulwich object
+    # indexed_object will be the MongoDBModel we create
+    progress(obj)
 
-    if object._type == 'tree':
-        try:
-            t = models.Tree.get(id=object.id)
-            assert t.type == 'tree'
-        except exceptions.DoesNotExist:
-            logger.error('Apparently %s does not exist in %s...' % (object.id, repo))
-        else:
-            for name, mode, sha1 in object.iteritems():
-                try:
-                    child = models.GitObject.get(sha1)
-                except exceptions.DoesNotExist:
-                    logger.info("Could not find child %s of %s in repo %s, assuming "
-                                "it's a commit from a submodule" % (sha1, t.id, repo))
-                    child = models.Commit.get_or_create(id=sha1)
-                if child.type in ['tree', 'blob']:
-                    child.add_parent(t, name=name)
-                    t.add_child(child)
-                else:
-                    assert child.type == 'commit'
-                    assert t.type == 'tree'
-                    child.add_as_submodule_of(t, name=name)
-                    t.add_submodule(child)
-                child.save()
-            t.save()
-    elif object._type == 'commit':
-        try:
-            c = models.Commit.get(id=object.id)
-            c.add_parents(object.parents)
-            c.set_tree(object.tree)
-            c.save()
-
-            child = models.Tree.get(id=object.tree)
-            child.add_commit(c)
+    if obj._type == 'tree':
+        indexed_object = models.Tree.get_from_cache_or_new(id=obj.id)
+        for name, mode, sha1 in obj.iteritems():
+            # Default the type of the child object to a commit (a submodule)
+            child_type = type_mapper.setdefault(sha1, 'commit')
+            if child_type == 'tree':
+                child = models.Tree.get_from_cache_or_new(id=sha1)
+                child.add_parent(indexed_object, name=name)
+                indexed_object.add_child(child)
+            elif child_type == 'blob':
+                child = models.Blob.get_from_cache_or_new(id=sha1)
+                child.add_parent(indexed_object, name=name)
+                indexed_object.add_child(child)
+            else:
+                assert child_type == 'commit'
+                child = models.Commit.get_from_cache_or_new(id=sha1)
+                child.add_as_submodule_of(indexed_object, name=name)
+                indexed_object.add_submodule(child)
             child.save()
-        except exceptions.DoesNotExist, e:
-            logger.critical('Had trouble with %s %s from repo %s, error:\n%s!' %
-                            (object._type, object.id, repo, traceback.format_exc(e)))
-            raise
-    elif object._type == 'tag':
-        try:
-            t = models.Tag.get(id=object.id)
-        except exceptions.DoesNotExist, e:
-            logger.critical('Had trouble with %s %s from repo %s, error:\n%s!' %
-                            (object._type, object.id, repo, traceback.format_exc(e)))
-            raise
-        else:
-            t.set_object(object.get_object()[1])
-            t.add_repository(repo, recursive=False)
-            t.save()
+    elif obj._type == 'commit':
+        indexed_object = models.Commit.get_from_cache_or_new(id=obj.id)
+        indexed_object.add_parents(obj.parents)
+        indexed_object.set_tree(obj.tree)
+        
+        child = models.Tree.get_from_cache_or_new(id=obj.tree)
+        child.add_commit(indexed_object)
+        child.save()
+    elif obj._type == 'tag':
+        child_id = obj.get_object()[1]
+        indexed_object = models.Tag.get_from_cache_or_new(id=obj.id)
+        indexed_object.set_object(child_id)
+
+        child = models.GitObject.get_from_cache_or_new(id=child_id)
+        child.add_tag(indexed_object)
+        child.save()
+    elif obj._type == 'blob':
+        indexed_object = models.Blob.get_from_cache_or_new(id=obj.id)
+    else:
+        raise ValueError('Unrecognized git object type %s' % obj._type)
+    indexed_object.add_repository(repo)
+    indexed_object.save()
 
 def _process_data(repo, uncompressed_pack, progress):
-    logger.info('Starting object creation for %s' % repo)
+    logger.info('Constructing object type map for %s' % repo)
+    type_mapper = {}
     for obj in uncompressed_pack.iterobjects():
-        if obj._type == 'blob':
-            o = models.Blob.get_or_create(id=obj.id)
-            assert o.type == 'blob'
-        elif obj._type == 'tree':
-            o = models.Tree.get_or_create(id=obj.id)
-            assert o.type == 'tree'
-        elif obj._type == 'commit':
-            o = models.Commit.get_or_create(id=obj.id)
-            assert o.type == 'commit'
-        elif obj._type == 'tag':
-            o = models.Tag.get_or_create(id=obj.id)
-            assert o.type == 'tag'
-        else:
-            raise ValueEror('Unrecognized type %s' % obj._type)
-        o.add_repository(repo)
-        o.save()
-    models.flush()
-    check_for_die_file()
+        type_mapper[obj.id] = obj._type
+    logger.info('Constructed object type map of size %s for %s' % (len(type_mapper), repo))
 
     logger.info('Now processing objects for %s' % repo)
-    for object in uncompressed_pack.iterobjects():
-        _process_object(repo=repo, object=object, progress=progress)
-    check_for_die_file()
-
-    logger.info('Marking objects complete for %s' % repo)
-    for object in uncompressed_pack.iterobjects():
-        try:
-            o = models.GitObject.get(id=object.id)
-        except exceptions.DoesNotExist:
-            logger.critical('Could not find object %s!' % object.id)
-        else:
-            o.mark_complete()
-            o.save()
-    check_for_die_file()
+    for obj in uncompressed_pack.iterobjects():
+        _process_object(repo=repo,
+                        obj=obj,
+                        progress=progress,
+                        type_mapper=type_mapper)
 
 def index_data(data, repo, is_path=False):
     if is_path:
