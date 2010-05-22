@@ -28,7 +28,7 @@ ${webhelpers.html.tags.submit('submit', 'Index me please')} </p>
 <h2> Query </h2>
 
 <p>
-You can query for any Git object by going to <b>http://gdb.mit.edu/anygit/q/$sha1prefix</b>
+You can query for any Git object by going to <b>http://anyg.it/q/$sha1prefix</b>
 </p>
 
 <p>
