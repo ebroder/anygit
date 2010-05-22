@@ -148,16 +148,28 @@ def _process_object(repo, obj, progress, type_mapper):
         indexed_object = models.Commit.get_from_cache_or_new(id=obj.id)
         indexed_object.add_parents(obj.parents)
         indexed_object.set_tree(obj.tree)
-        
+
         child = models.Tree.get_from_cache_or_new(id=obj.tree)
         child.add_commit(indexed_object)
         child.save()
     elif obj._type == 'tag':
-        child_id = obj.get_object()[1]
+        child, child_id = obj.get_object()
+        child_type = child._type
+
         indexed_object = models.Tag.get_from_cache_or_new(id=obj.id)
         indexed_object.set_object(child_id)
 
-        child = models.GitObject.get_from_cache_or_new(id=child_id)
+        if child_type == 'blob':
+            child = models.Blob.get_from_cache_or_new(id=child_id)
+        elif child_type == 'tree':
+            child = models.Tree.get_from_cache_or_new(id=child_id)
+        elif child_type == 'commit':
+            child = models.Commit.get_from_cache_or_new(id=child_id)
+        elif child_type == 'tag':
+            child = models.Tag.get_from_cache_or_new(id=child_id)
+        else:
+            raise ValueError('Unrecognized git object type %s for object %s' % (child_type,
+                                                                                child_id))
         child.add_tag(indexed_object)
         child.save()
     elif obj._type == 'blob':
