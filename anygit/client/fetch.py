@@ -66,7 +66,7 @@ def fetch(repo, recover_mode=False, discover_only=False):
         if not recover_mode:
             # Strictly speaking, this only needs to return strings.
             matching_commits = set(c.id for c in models.Commit.find_matching(refs_dict.itervalues(),
-                                                                             complete=True))
+                                                                             dirty=False))
         else:
             matching_commits = set()
         remote_heads = set(v for k, v in refs_dict.iteritems() if '^{}' not in k)
@@ -84,7 +84,7 @@ def fetch(repo, recover_mode=False, discover_only=False):
 
     def get_parents(sha1):
         try:
-            c = models.Commit.get_by_attributes(id=sha1, complete=True)
+            c = models.Commit.get_by_attributes(id=sha1, dirty=False)
         except exceptions.DoesNotExist:
             return []
         else:
@@ -109,6 +109,13 @@ def fetch(repo, recover_mode=False, discover_only=False):
                  progress=progress)
     destfile.close()
     return destfile_name
+
+def _objectify(id, type):
+    mapper = {'blob' : models.Blob,
+              'tree' : models.Tree,
+              'commit' : models.Commit,
+              'tag' : models.Tag}
+    return mapper[type].get_from_cache_or_new(id=id)
 
 def _get_objects_iterator(data, is_path):
     if is_path:
@@ -159,17 +166,7 @@ def _process_object(repo, obj, progress, type_mapper):
         indexed_object = models.Tag.get_from_cache_or_new(id=obj.id)
         indexed_object.set_object(child_id)
 
-        if child_type == 'blob':
-            child = models.Blob.get_from_cache_or_new(id=child_id)
-        elif child_type == 'tree':
-            child = models.Tree.get_from_cache_or_new(id=child_id)
-        elif child_type == 'commit':
-            child = models.Commit.get_from_cache_or_new(id=child_id)
-        elif child_type == 'tag':
-            child = models.Tag.get_from_cache_or_new(id=child_id)
-        else:
-            raise ValueError('Unrecognized git object type %s for object %s' % (child_type,
-                                                                                child_id))
+        child = _objectify(id=child_id, type=child_type)
         child.add_tag(indexed_object)
         child.save()
     elif obj._type == 'blob':
@@ -180,10 +177,13 @@ def _process_object(repo, obj, progress, type_mapper):
     indexed_object.save()
 
 def _process_data(repo, uncompressed_pack, progress):
-    logger.info('Constructing object type map for %s' % repo)
+    logger.info('Dirtying objects for %s' % repo)
     type_mapper = {}
     for obj in uncompressed_pack.iterobjects():
         type_mapper[obj.id] = obj._type
+        dirty = _objectify(id=obj.id, type=obj._type)
+        dirty.mark_dirty(True)
+        dirty.save()
     logger.info('Constructed object type map of size %s for %s' % (len(type_mapper), repo))
 
     logger.info('Now processing objects for %s' % repo)
@@ -192,6 +192,15 @@ def _process_data(repo, uncompressed_pack, progress):
                         obj=obj,
                         progress=progress,
                         type_mapper=type_mapper)
+    del type_mapper
+
+    logger.info('Cleaning objects for %s' % repo)
+    type_mapper = {}
+    for obj in uncompressed_pack.iterobjects():
+        dirty = _objectify(id=obj.id, type=obj._type)
+        dirty.mark_dirty(False)
+        dirty.save()
+    models.flush()
 
 def index_data(data, repo, is_path=False):
     if is_path:

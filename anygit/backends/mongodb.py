@@ -54,7 +54,7 @@ def flush():
     logger.debug('Committing...')
     classes = [GitObject]
     for klass in classes:
-        logger.debug('Saving %d objects for %s...' % (len(klass._save_list), klass.__name__))
+        logger.debug('Saving %d %s instances...' % (len(klass._save_list), klass.__name__))
 
         for instance in klass._save_list:
             updates = instance.get_updates()
@@ -363,29 +363,28 @@ class MongoDbModel(object):
 
 class GitObject(MongoDbModel, common.CommonGitObjectMixin):
     """The base class for git objects (such as blobs, commits, etc..)."""
-    # Attributes: complete
+    # Attributes: repository_ids, tag_ids, dirty
     _save_list = set()
     _cache = {}
     repository_ids = make_persistent_set()
     tag_ids = make_persistent_set()
-    complete = make_persistent_attribute()
+    dirty = make_persistent_attribute()
 
     def mongofy(self, mongo_object):
         super(GitObject, self).mongofy(mongo_object)
-        mongo_object['complete'] = self.complete
-        mongo_object['tag_ids'] = self.complete
+        mongo_object['dirty'] = self.dirty
+        mongo_object['tag_ids'] = list(self.tag_ids)
         mongo_object['repository_ids'] = list(self.repository_ids)
         return mongo_object
 
     @classmethod
     def lookup_by_sha1(cls, sha1, partial=False, offset=0, limit=10):
+        # TODO: might want to disable lookup for dirty objects, or something
         if partial:
             safe_sha1 = '^%s' % re.escape(sha1)
-            results = cls._object_store.find({'_id' : re.compile(safe_sha1),
-                                              'complete' : True})
+            results = cls._object_store.find({'_id' : re.compile(safe_sha1)})
         else:
-            results = cls._object_store.find({'_id' : sha1,
-                                              'complete' : True})
+            results = cls._object_store.find({'_id' : sha1})
         count = results.count()
         return results.skip(offset).limit(limit), count
 
@@ -396,9 +395,9 @@ class GitObject(MongoDbModel, common.CommonGitObjectMixin):
         else:
             return super(GitObject, cls).all()
 
-    def mark_complete(self):
-        self.complete = True
-        self._set('complete', True)
+    def mark_dirty(self, value):
+        self.dirty = value
+        self._set('dirty', value)
 
     def mark_saved(self):
         self.new = False
@@ -526,11 +525,11 @@ class Tree(GitObject, common.CommonTreeMixin):
         repository_id = canonicalize_to_id(repository_id)
         if repository_id in self.repository_ids:
             return
-        self._add_to_set('repository_ids', repository_id)
         if recursive:
-            self.save()
             for obj in self.children:
                 obj.add_repository(repository_id, recursive=True)
+        self._add_to_set('repository_ids', repository_id)
+        self.save()
 
 
 class Tag(GitObject, common.CommonTagMixin):
@@ -543,10 +542,10 @@ class Tag(GitObject, common.CommonTagMixin):
         repository_id = canonicalize_to_id(repository_id)
         if repository_id in self.repository_ids:
             return
-        self._add_to_set('repository_ids', repository_id)
         if recursive:
-            self.save()
             self.object.add_repository(repository_id, recursive=True)
+        self._add_to_set('repository_ids', repository_id)
+            self.save()
 
     def mongofy(self, mongo_object=None):
         if mongo_object is None:
@@ -577,12 +576,12 @@ class Commit(GitObject, common.CommonCommitMixin):
         repository_id = canonicalize_to_id(repository_id)
         if repository_id in self.repository_ids:
             return
-        self._add_to_set('repository_ids', repository_id)
         if recursive:
-            self.save()
             for parent in self.parents:
                 parent.add_repository(repository_id, recursive=True)
             self.tree.add_repository(repository_id, recursive=True)
+        self._add_to_set('repository_ids', repository_id)
+        self.save()
 
     def set_tree(self, tree_id):
         tree_id = canonicalize_to_id(tree_id)
