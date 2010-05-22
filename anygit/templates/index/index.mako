@@ -1,4 +1,4 @@
-<%inherit file="../layouts/application.mako"/>
+1;2305;0c<%inherit file="../layouts/application.mako"/>
 
 <%
     from pylons import url
@@ -10,9 +10,9 @@
 one at a time.  Currently
 <b>${models.Repository.count(been_indexed=True)}</b> repos have been
 indexed and counting.  We also have thus far indexed
-<b>${models.Blob.count(complete=True)}</b> blobs,
-<b>${models.Tree.count(complete=True)}</b> trees, and
-<b>${models.Commit.count(complete=True)}</b> commits.</p>
+<b>${models.Blob.count()}</b> blobs,
+<b>${models.Tree.count()}</b> trees, and
+<b>${models.Commit.count()}</b> commits.</p>
 
 <h2> Request indexing </h2>
 

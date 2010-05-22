@@ -545,7 +545,7 @@ class Tag(GitObject, common.CommonTagMixin):
         if recursive:
             self.object.add_repository(repository_id, recursive=True)
         self._add_to_set('repository_ids', repository_id)
-            self.save()
+        self.save()
 
     def mongofy(self, mongo_object=None):
         if mongo_object is None:

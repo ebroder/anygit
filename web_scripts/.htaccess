@@ -2,3 +2,5 @@ RewriteEngine on
 
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^(.*)$ anygit.fcgi/$1 [QSA,L]
+
+ErrorDocument 500 "Sorry, something went wrong."

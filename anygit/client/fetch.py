@@ -173,7 +173,6 @@ def _process_object(repo, obj, progress, type_mapper):
         indexed_object = models.Blob.get_from_cache_or_new(id=obj.id)
     else:
         raise ValueError('Unrecognized git object type %s' % obj._type)
-    indexed_object.add_repository(repo)
     indexed_object.save()
 
 def _process_data(repo, uncompressed_pack, progress):
@@ -183,6 +182,7 @@ def _process_data(repo, uncompressed_pack, progress):
         type_mapper[obj.id] = obj._type
         dirty = _objectify(id=obj.id, type=obj._type)
         dirty.mark_dirty(True)
+        dirty.add_repository(repo)
         dirty.save()
     logger.info('Constructed object type map of size %s for %s' % (len(type_mapper), repo))
 

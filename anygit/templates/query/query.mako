@@ -17,8 +17,12 @@
 % if c.objects.count() == 0:
 <p> Sorry, no objects were found with that SHA1 as a prefix. </p>
 
-% elif c.objects.count() == 1:    
+% elif c.objects.count() == 1:
 <% object = c.objects.next() %>
+% if object.dirty:
+<p> <i> Note that this object is currently being indexed; its state might appear broken. </i> </p>
+% endif
+
   % if object.type == 'commit':
     <% parents = object.repositories %>
     <p> Commit ${self.link_to_object(object)} appears in the following
