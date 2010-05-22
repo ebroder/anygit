@@ -4,7 +4,7 @@ index 0000000..b65edd2
 --- /dev/null
 +++ b/Makefile
 @@ -0,0 +1,8 @@
-+export PYTHONPATH=../../pkgs/lib64/python
++export PYTHONPATH=../../pkgs/lib64/python:../../pkgs/lib/python
 +
 +install:
 +	./setup.py install --home ../../pkgs

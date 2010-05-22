@@ -2,7 +2,7 @@
 MONGO_PATCH="../../patches/mongo-python-driver.patch"
 
 install:
-	mkdir -p pkgs/lib64/python
+	mkdir -p pkgs/lib64/python pkgs/lib/python
 	cd submodules/mongo-python-driver; git apply $(MONGO_PATCH); $(MAKE) $(MFLAGS) install
 
 clean:
