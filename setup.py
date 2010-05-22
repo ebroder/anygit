@@ -27,5 +27,6 @@ setup(
     [anygit.backend]
     mysql = anygit.backends.mysql
     mongodb = anygit.backends.mongodb
+    simpledb = anygit.backends.simpledb
     """,
 )
