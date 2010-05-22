@@ -222,6 +222,10 @@ class MongoDbModel(object):
         return type(self).__name__.lower()
 
     @classmethod
+    def find(cls, kwargs):
+        return cls._object_store.find(kwargs)
+
+    @classmethod
     def get(cls, id):
         """Get an item with the given primary key"""
         cached = cls.get_from_cache(id=id)
@@ -248,7 +252,7 @@ class MongoDbModel(object):
     @classmethod
     def get_by_attributes(cls, **kwargs):
         rename_dict_keys(kwargs, to_backend=True)
-        results = cls._object_store.find(kwargs)
+        results = self.find(kwargs)
         count = results.count()
         if count == 1:
             result = results.next()
