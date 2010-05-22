@@ -57,9 +57,14 @@ def flush():
         logger.debug('Saving %d objects for %s...' % (len(klass._save_list), klass.__name__))
 
         for instance in klass._save_list:
-            klass._object_store.update({'_id' : instance.id},
-                                       instance.get_updates(),
-                                       upsert=True)
+            updates = instance.get_updates()
+            try:
+                klass._object_store.update({'_id' : instance.id},
+                                           updates,
+                                           upsert=True)
+            except pymongo.errors.InvalidStringData:
+                logger.critical('Had some trouble saving %r' % updates)
+                raise
             instance.mark_saved()
             instance.new = False
             instance._pending_save = False
