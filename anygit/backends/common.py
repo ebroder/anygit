@@ -53,6 +53,7 @@ class CommonMixin(object):
         pass
 
 
+github_re = re.compile('^git://github.com')
 class CommonRepositoryMixin(CommonMixin):
     @classmethod
     def create(cls, url):

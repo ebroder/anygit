@@ -5,6 +5,15 @@
   from routes.util import url_for
 %>
 
+<%def name="display_contents(obj)">
+% for repo in obj.repositories:
+  % if not repo.linkable(obj) and repo.displayable(obj):
+    ${repo.display_object(obj)}
+  % endif
+% endfor
+</%def>
+
+
 % if c.objects.count() == 0:
 <p> Sorry, no objects were found with that SHA1 as a prefix. </p>
 
@@ -14,7 +23,6 @@
     <% parents = object.repositories %>
     <p> Commit ${self.link_to_object(object)} appears in the following
     ${h.pluralize(parents.count(), 'repository', 'repositories')}: </p>
-
       <ul>
       % for parent in parents:
       <li> ${self.link_to_view(parent, object)} </li>
