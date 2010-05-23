@@ -8,11 +8,11 @@
 
 <p>Welcome to <b>anygit</b>, indexing the world's Git repositories
 one at a time. Currently
-<b>${models.Repository.count(been_indexed=True)}</b> repos have been
+<b>${models.Repository.count_instances(been_indexed=True)}</b> repos have been
 indexed and counting. We also have thus far indexed
-<b>${models.Blob.count()}</b> blobs,
-<b>${models.Tree.count()}</b> trees, and
-<b>${models.Commit.count()}</b> commits.</p>
+<b>${models.Blob.count_instances()}</b> blobs,
+<b>${models.Tree.count_instances()}</b> trees, and
+<b>${models.Commit.count_instances()}</b> commits.</p>
 
 <h2>Request indexing</h2>
 
@@ -41,3 +41,10 @@ Alternatively, just enter your SHA1 prefix in the textfield:
 <input type="submit" value="Query" />
 </form>
 </p>
+
+<p> The most populous repositories are: </p>
+<ol>
+% for r in models.Repository.get_by_highest_count(10):
+<li> ${r.url} with ${r.count} git objects </li>
+% endfor
+</ol>

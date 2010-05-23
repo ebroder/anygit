@@ -362,7 +362,7 @@ class MongoDbModel(object):
         return cls._object_store.find(kwargs)
 
     @classmethod
-    def count(cls, **kwargs):
+    def count_instances(cls, **kwargs):
         """Find the number of objects that match the given criteria"""
         kwargs['__type__'] = cls.__name__.lower()
         return cls._object_store.find(kwargs).count()
@@ -691,11 +691,24 @@ class Repository(MongoDbModel, common.CommonRepositoryMixin):
             return cls._object_store.find({'indexing' : False,
                                            'approved' : True})
 
+    @classmethod
+    def get_by_highest_count(cls, n=None, descending=True):
+        if descending:
+            order = pymongo.DESCENDING
+        else:
+            order = pymongo.ASCENDING
+        base = cls._object_store.find().sort('count', order)
+        if n:
+            full = base.limit(n)
+        else:
+            full = base
+        return full
+
     def set_count(self, value):
         self._set('count', value)
 
     def count_objects(self):
-        return self._object_store.find({'repository_ids' : self.id}).count()
+        return GitObject._object_store.find({'repository_ids' : self.id}).count()
 
     def __str__(self):
         return 'Repository: %s' % self.url
