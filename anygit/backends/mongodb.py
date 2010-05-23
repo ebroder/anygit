@@ -367,12 +367,6 @@ class MongoDbModel(object):
     def delete(self):
         raise NotImplementedError()
 
-    def mongofy(self, mongo_object=None):
-        if mongo_object is None:
-            return {}
-        mongo_object['_id'] = self.id
-        return mongo_object
-
     @classmethod
     def demongofy(cls, son):
         if '_id' in son:
@@ -438,14 +432,6 @@ class GitObjectAssociation(MongoDbModel, common.CommonMixin):
         if key1 and key2:
             self._id = key1 + key2
 
-    def mongofy(self, mongo_object=None):
-        if mongo_object is None:
-            return {}
-        super(GitObjectAssociation, self).mongofy(mongo_object)
-        mongo_object[self.key1_name] = getattr(self, self.key1_name)
-        mongo_object[self.key2_name] = getattr(self, self.key2_name)
-        return mongo_object
-
     @property
     def id(self):
         return self._id
@@ -476,13 +462,6 @@ class BlobTree(GitObjectAssociation):
 
     name = make_persistent_attribute('name')
 
-    def mongofy(self, mongo_object={}):
-        if mongo_object is None:
-            return {}
-        super(BlobTree, self).mongofy(mongo_object)
-        mongo_object['name'] = self.name
-        return mongo_object
-
 
 class BlobTag(GitObjectAssociation):
     __tablename__ = 'blob_tags'
@@ -501,12 +480,6 @@ class TreeParentTree(GitObjectAssociation):
 
     name = make_persistent_attribute('name')
 
-    def mongofy(self, mongo_object=None):
-        if mongo_object is None:
-            return {}
-        super(TreeParentTree, self).mongofy(mongo_object)
-        mongo_object['name'] = self.name
-        return mongo_object
 
 class TreeCommit(GitObjectAssociation):
     __tablename__ = 'tree_commits'
@@ -540,13 +513,6 @@ class CommitTree(GitObjectAssociation):
     key2_name = 'tree_id'
 
     name = make_persistent_attribute('name')
-
-    def mongofy(self, mongo_object=None):
-        if mongo_object is None:
-            return {}
-        super(CommitTree, self).mongofy(mongo_object)
-        mongo_object['name'] = self.name
-        return mongo_object
 
 
 class CommitTag(GitObjectAssociation):
@@ -805,17 +771,6 @@ class Aggregate(MongoDbModel):
     tree_count = make_persistent_attribute(default=0)
     commit_count = make_persistent_attribute(default=0)
     tag_count = make_persistent_attribute(default=0)
-
-    def mongofy(self, mongo_object=None):
-        if mongo_object is None:
-            mongo_object = {}
-        super(Aggregate, self).mongofy(mongo_object)
-        mongo_object['indexed_repository_count'] = self.indexed_repository_count
-        mongo_object['blob_count'] = self.blob_count
-        mongo_object['tree_count'] = self.tree_count
-        mongo_object['commit_count'] = self.commit_count
-        mongo_object['tag_count'] = self.tag_count
-        return mongo_object
 
     @classmethod
     def get(cls):
