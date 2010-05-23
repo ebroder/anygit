@@ -45,7 +45,7 @@ def destroy_session():
     database.Session.remove()
 
 def canonicalize(obj_or_sha1):
-    if isinstance(obj_or_sha1, str):
+    if isinstance(obj_or_sha1, basestring):
         obj_or_sha1 = GitObject.get_or_create(id=obj_or_sha1)
     return obj_or_sha1
 
@@ -297,7 +297,7 @@ class Commit(GitObject, common.CommonCommitMixin):
                            secondary=commits_parents)
 
     def add_repository(self, remote, recursive=False):
-        if isinstance(remote, str):
+        if isinstance(remote, basestring):
             remote = Repository.get(remote)
         if remote not in self.repositories:
             self.repositories.add(remote)
@@ -307,7 +307,7 @@ class Commit(GitObject, common.CommonCommitMixin):
                     parent.add_repository(remote, recursive=True)
 
     def add_tree(self, tree, recursive=True):
-        if isinstance(tree, str):
+        if isinstance(tree, basestring):
             tree = Tree.get_or_create(id=tree)
         # Assumes the invariant that if we have added a tree before,
         # we have added all of its children as well
@@ -320,7 +320,7 @@ class Commit(GitObject, common.CommonCommitMixin):
                     self.add_blob(blob)
 
     def add_blob(self, blob):
-        if isinstance(blob, str):
+        if isinstance(blob, basestring):
             blob = Blob.get_or_create(id=blob)
         self.blobs.add(blob)
 

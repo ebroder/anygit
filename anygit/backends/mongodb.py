@@ -22,7 +22,14 @@ connection = None
 def create_schema():
     # Clear out the database
     GitObject._object_store.remove()
+    GitObject._object_store.drop_index()
+    GitObject._object_store.ensure_index({'__type__' : 1})
+
     Repository._object_store.remove()
+    Repository._object_store.drop_index()
+    Repository._object_store.ensure_index({'url' : 1})
+    Repository._object_store.ensure_index({'been_indexed' : 1})
+    Repository._object_store.ensure_index({'approved' : 1})
 
 def init_model(connection):
     """Call me before using any of the tables or classes in the model."""
@@ -95,7 +102,7 @@ def classify(string):
 def canonicalize_to_id(db_object):
     if isinstance(db_object, MongoDbModel):
         return db_object.id
-    elif isinstance(db_object, str) or isinstance(db_object, unicode):
+    elif isinstance(db_object, basestring):
         return db_object
     else:
         raise exceptions.Error('Illegal type %s (instance %r)' % (type(db_object), db_object))
@@ -103,7 +110,7 @@ def canonicalize_to_id(db_object):
 def canonicalize_to_object(id, cls=None):
     if not cls:
         cls = GitObject
-    if isinstance(id, str) or isinstance(id, unicode):
+    if isinstance(id, basestring):
         obj = cls.get(id=id)
     elif isinstance(id, cls):
         obj = id
@@ -263,7 +270,7 @@ class MongoDbModel(object):
     @classmethod
     def get_by_attributes(cls, **kwargs):
         rename_dict_keys(kwargs, to_backend=True)
-        results = self.find(kwargs)
+        results = cls.find(kwargs)
         count = results.count()
         if count == 1:
             result = results.next()

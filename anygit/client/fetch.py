@@ -225,7 +225,7 @@ def index_data(data, repo, is_path=False):
 
 def fetch_and_index(repo, recover_mode=False):
     check_for_die_file()
-    if isinstance(repo, str) or isinstance(repo, unicode):
+    if isinstance(repo, basestring):
         repo = models.Repository.get(repo)
     repo.refresh()
     # There's a race condition here where two indexing processes might
