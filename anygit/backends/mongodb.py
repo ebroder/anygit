@@ -797,3 +797,41 @@ class Repository(MongoDbModel, common.CommonRepositoryMixin):
 
     def __str__(self):
         return 'Repository: %s' % self.url
+
+
+class Aggregate(MongoDbModel):
+    indexed_repository_count = make_persistent_attribute(default=0)
+    blob_count = make_persistent_attribute(default=0)
+    tree_count = make_persistent_attribute(default=0)
+    commit_count = make_persistent_attribute(default=0)
+    tag_count = make_persistent_attribute(default=0)
+
+    def mongofy(self, mongo_object=None):
+        if mongo_object is None:
+            mongo_object = {}
+        super(Aggregate, self).mongofy(mongo_object)
+        mongo_object['indexed_repository_count'] = self.indexed_repository_count
+        mongo_object['blob_count'] = self.blob_count
+        mongo_object['tree_count'] = self.tree_count
+        mongo_object['commit_count'] = self.commit_count
+        mongo_object['tag_count'] = self.tag_count
+        return mongo_object
+
+    @classmethod
+    def get(cls):
+        return super(Aggregate, cls).get(id='main')
+
+    def set_indexed_repository_count(self, value):
+        self._set('indexed_repository_count', value)
+
+    def set_blob_count(self, value):
+        self._set('blob_count', value)
+    
+    def set_tree_count(self, value):
+        self._set('tree_count')
+
+    def set_commit_count(self, value):
+        self._set('commit_count', value)
+
+    def set_tag_count(self, value):
+        self._set('tag_count', value)
