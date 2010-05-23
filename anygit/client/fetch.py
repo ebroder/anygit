@@ -267,6 +267,9 @@ def fetch_and_index_threaded(repo):
     except DieFile:
         # TODO: do something to terminate the controller process too
         sys.exit(1)
+    except:
+        logger.error(traceback.format_exc())
+        raise
 
 def index_all(last_index=None, threads=1):
     repos = list(models.Repository.get_indexed_before(last_index))
