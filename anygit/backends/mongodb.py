@@ -124,8 +124,8 @@ def sanitize_unicode(u):
         try:
             return unicode(u, 'utf-8')
         except UnicodeDecodeError:
-            sanitized = unicode(u, 'utf-8', 'ignore')
-            logger.error('Invalid unicode detected: %r.  Sanitizing to %s.' % (u, sanitized))
+            sanitized = unicode(u, 'iso-8859-1')
+            logger.info('Invalid unicode detected: %r.  Assuming iso-8859-1 (%s)' % (u, sanitized))
             return sanitized
     else:
         return u
