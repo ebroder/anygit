@@ -41,7 +41,7 @@ def _git_kernel_org_handle(repo, obj, match):
               'suffix' : match.group(2),
               'type' : obj.type,
               'sha1' : obj.id}
-    return 'http://git.kernel.org/?p=%(user)/%(suffix);a=%(type)s;h=%(sha1)s' % values
+    return 'http://git.kernel.org/?p=%(user)s/%(suffix)s;a=%(type)s;h=%(sha1)s' % values
 
 def _repo_or_cz_handle(repo, obj, match):
     values = {'repo' : match.group(1),
@@ -51,8 +51,8 @@ def _repo_or_cz_handle(repo, obj, match):
 
 def get_view_url_for(repo, obj):
     for regex, handler in [(github_com_re, _github_com_handle),
-                           (git_kernel_org_re, git_kernel_org_handle),
-                           (repo_or_cz_re, repo_or_cz_handle)]:
+                           (git_kernel_org_re, _git_kernel_org_handle),
+                           (repo_or_cz_re, _repo_or_cz_handle)]:
         match = regex.search(repo.url)
         if match:
             return handler(repo, obj, match)
