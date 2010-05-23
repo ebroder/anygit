@@ -10,13 +10,14 @@ from webhelpers.pylonslib import Flash as _Flash
 flash = _Flash('flash')
 error = _Flash('error')
 
-github_re = re.compile(r'^(?:git|http)://github.com/([^/]*)/([^/]*).git$')
-repo_or_cz_re = re.compile(r'^(?:git|http)://repo.or.cz/([^/]*)$')
+github_com_re = re.compile(r'^(?:git|http)://github\.com/([^/]*)/([^/]*)\.git$')
+git_kernel_org_re = re.compile(r'^(?:git|http)://git\.kernel\.org/pub/scm/([^/]*)/(.*\.git$)')
+repo_or_cz_re = re.compile(r'^(?:git|http)://repo\.or\.cz/([^/]*)$')
 
 def get_url(obj):
     return util.url_for(controller='query', action='query', id=obj.id)
 
-def _github_handle(repo, obj, match):
+def _github_com_handle(repo, obj, match):
     values = {'user' : match.group(1),
               'repo' : match.group(2),
               'sha1' : obj.id,
@@ -35,6 +36,13 @@ def _github_handle(repo, obj, match):
     elif obj.type == 'tag':
         return get_view_url_for(repo, obj.object)
 
+def _git_kernel_org_handle(repo, obj, match):
+    values = {'user' : match.group(1),
+              'suffix' : match.group(2),
+              'type' : obj.type,
+              'sha1' : obj.id}
+    return 'http://git.kernel.org/?p=%(user)/%(suffix);a=%(type)s;h=%(sha1)s' % values
+
 def _repo_or_cz_handle(repo, obj, match):
     values = {'repo' : match.group(1),
               'type' : obj.type,
@@ -42,12 +50,12 @@ def _repo_or_cz_handle(repo, obj, match):
     return 'http://repo.or.cz/w/%(repo)s/%(type)s/%(sha1)s' % values
 
 def get_view_url_for(repo, obj):
-    match = github_re.search(repo.url)
-    if match:
-        return _github_handle(repo, obj, match)
-    match = repo_or_cz_re.search(repo.url)
-    if match:
-        return _repo_or_cz_handle(repo, obj, match)
+    for regex, handler in [(github_com_re, _github_com_handle),
+                           (git_kernel_org_re, git_kernel_org_handle),
+                           (repo_or_cz_re, repo_or_cz_handle)]:
+        match = regex.search(repo.url)
+        if match:
+            return handler(repo, obj, match)
     
 def pluralize(number, singular, plural=None):
     if plural is None:
