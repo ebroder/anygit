@@ -97,6 +97,13 @@ class CommonRepositoryMixin(CommonMixin):
     def path(self):
         return self._parsed_url.path
 
+    @staticmethod
+    def canonicalize(url):
+        if url:
+            return url.lower().strip(' /')
+        else:
+            return url
+
 
 class CommonRemoteHeadMixin(CommonMixin):
     pass

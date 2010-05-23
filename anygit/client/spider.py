@@ -80,6 +80,12 @@ def yaml_curl(url):
         result = None
     return result
 
+def create(url):
+    canonical_url = models.Repository.canonicalize(url)
+    r = models.Repository.get_or_create(url=canonical_url)
+    r.approved = 'spidered'
+    r.save()
+
 ### Github methods
 
 def get_repos(user):
@@ -128,7 +134,7 @@ def record_user(new_user):
         logger.info('Adding new user %s' % new_user)
         pending_users.add(new_user)
 
-def github_spider():
+def github_com_spider():
     state_file ='state.yml'
     load_state(state_file)
     if not pending_users:
@@ -148,9 +154,7 @@ def github_spider():
                     (user, len(pending_users), pending_users, len(repos)))
         for repo in repos:
             url = 'git://%s.git' % repo[':url'].strip('http://')
-            r = models.Repository.get_or_create(url=url)
-            r.approved = 'spidered'
-            r.save()
+            create(url=url)
             for new_user in get_collaborators(user, repo[':name']):
                 # Don't repeat people
                 record_user(new_user)
@@ -160,18 +164,16 @@ def github_spider():
 
 # git.kernel.org spider
 
-def kernel_spider():
+def git_kernel_org_spider():
     content = fetch('http://git.kernel.org/')
     repo_extractor = re.compile('git://[^\s<>]+\.git')
     for match in repo_extractor.finditer(content):
         logger.info('Adding repo %s' % match.group(0))
-        r = models.Repository.get_or_create(url=match.group(0))
-        r.approved = 'spidered'
-        r.save()
+        create(url=match.group(0))
 
 # repo.or.cz spider
 
-def repo_spider():
+def repo_or_cz_spider():
     logger.info('About to fetch http://repo.or.cz/?a=project_list&s=git')
     content = fetch('http://repo.or.cz/?a=project_list&s=git')
     logger.info('About to extract data')
@@ -182,6 +184,23 @@ def repo_spider():
         if href.search(m):
             continue
         logger.info('Adding repo %s' % m)
-        r = models.Repository.get_or_create(url='git://repo.or.cz/%s' % m)
-        r.approved = 'spidered'
-        r.save()
+        create(url='git://repo.or.cz/%s' % m)
+
+# git.gnome.org spider
+
+def git_gnome_org_spider():
+    logger.info('About to fetch http://git.gnome.org/browse/')
+    content = fetch('http://git.gnome.org/browse/')
+    logger.info('About to extract data')
+    repo_extractor = re.compile('/browse/(.*?)/')
+    for match in repo_extractor.finditer(content):
+        m = match.group(1)
+        logger.info('Adding repo %s' % m)
+        create(url='git://git.gnome.org/%s' % m)
+
+# Spider for well-known repos
+
+def fixed():
+    repos = ['git://perl5.git.perl.org/metaconfig.git',
+             'git://perl5.git.perl.org/perl.git']
+    

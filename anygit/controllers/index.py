@@ -15,7 +15,7 @@ class IndexController(BaseController):
         return render('index.mako', controller='index')
 
     def do_request(self):
-        url = request.params.get('url').strip()
+        url = models.Repository.canonicalize(request.params.get('url'))
         if not url:
             helpers.error('You did not provide a URL')
             redirect_to('index')

@@ -8,19 +8,18 @@ from anygit import clisetup
 from anygit.client import spider
 
 def main():
-    parser = optparse.OptionParser('%prog [options] {github,kernel,repo}')
+    action = {'github.com' : spider.github_com_spider,
+              'repo.orcz' : spider.repo_or_cz_spider,
+              'git.kernel.org' : spider.git_kernel_org_spider,
+              'git.gnome.org' : spider.git_gnome_org_spider}
+    parser = optparse.OptionParser('%prog [options] {%s}' % ','.join(action))
     opts, args = parser.parse_args()
     if len(args) != 1:
         parser.print_help()
         return 1
-    type = args[0]
-    if type == 'github':
-        spider.github_spider()
-    elif type == 'kernel':
-        spider.kernel_spider()
-    elif type == 'repo':
-        spider.repo_spider()
-    else:
+    try:
+        action[args[0]]()
+    except KeyError:
         parser.print_help()
         return 2
 
