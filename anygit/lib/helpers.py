@@ -15,7 +15,7 @@ git_kernel_org_re = re.compile(r'^(?:git|http)://git\.kernel\.org/pub/scm/([^/]*
 repo_or_cz_re = re.compile(r'^(?:git|http)://repo\.or\.cz/([^/]*)$')
 perl5_git_perl_org_re = re.compile(r'^(?:git|http)://perl5\.git\.perl\.org/([^/]*)$')
 git_gnome_org_re = re.compile(r'^(?:git|http)://git\.gnome\.org/([^/]*)$')
-cgit_freedesktop_org_re = re.compile(r'^(?:git|http)://anongit\.freedesktop\.org/([^/]*)$')
+cgit_freedesktop_org_re = re.compile(r'^(?:git|http)://anongit\.freedesktop\.org/(.*)$')
 
 def get_url(obj):
     return util.url_for(controller='query', action='query', id=obj.id)
