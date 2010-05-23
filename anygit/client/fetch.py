@@ -63,22 +63,22 @@ def fetch(repo, recover_mode=False, discover_only=False):
         if discover_only:
             return []
 
+        # If we already have some commits, it's possible they're from
+        # a different repo.  We could recursively add them, but this
+        # requires a lot of database reads, which is unfortunately a
+        # luxury we don't have.  Thus we only report the remote heads
+        # that we have already seen from this repo.
         if not recover_mode:
             # Strictly speaking, this only needs to return strings.
             matching_commits = set(c.id for c in models.Commit.find_matching(refs_dict.itervalues(),
-                                                                             dirty=False))
+                                                                             dirty=False)
+                                   if repo.id in c.repository_ids)
         else:
             matching_commits = set()
         remote_heads = set(v for k, v in refs_dict.iteritems() if '^{}' not in k)
         missing_commits = remote_heads - matching_commits
         # The commits we already have
         present_commits = remote_heads.intersection(matching_commits)
-        # If we already have some commits, it's possible they're from
-        # a different repo, so we should make sure that this one gets
-        # them.  Note that these commits may actually be tags:
-        for commit in models.GitObject.find_matching(present_commits):
-            commit.add_repository(repo, recursive=True)
-            commit.save()
         logger.debug('Requesting %d remote heads for %s.' % (len(missing_commits), repo))
         return list(missing_commits)
 
@@ -88,7 +88,7 @@ def fetch(repo, recover_mode=False, discover_only=False):
         except exceptions.DoesNotExist:
             return []
         else:
-            return [p.id for p in c.parents if p.type == 'commit']
+            return [p.id for p in c.parents if p.type == 'commit' and repo.id in p.repository_ids]
 
     destfd, destfile_name = tempfile.mkstemp()
     destfile = os.fdopen(destfd, 'w')
