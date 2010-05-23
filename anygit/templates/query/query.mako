@@ -24,12 +24,12 @@
 % endif
 
   % if object.type == 'commit':
-    <% parents = object.repositories %>
+    <% repos = object.repositories %>
     <p> Commit <tt>${self.link_to_object(object)}</tt> appears in the following
-    ${h.pluralize(parents.count(), 'repository', 'repositories')}: </p>
+    ${h.pluralize(repos.count(), 'repository', 'repositories')}: </p>
       <ul>
-      % for parent in parents:
-      <li> ${self.link_to_view(parent, object)} </li>
+      % for repo in repos:
+      <li> ${self.link_to_view(repo, object)} </li>
       % endfor
       </ul>
 
@@ -48,19 +48,19 @@
     ${h.pluralize(len(object.parent_ids), 'tree')}. The ${h.pluralize(len(object.names), 'file')} associated with this blob are
     ${h.liststyled(object.names, ', ', '<tt>', '</tt>') | n}: </p>
     <ul>
-    % for tree in object.parents:
+    % for tree_id in object.parent_ids:
       <li><tt>${self.link_to_object(tree)}</tt></li>
     % endfor
     </ul>
     </p>
 
   % elif object.type == 'tree':
-    <% parents = object.repositories %>
+    <% repos = object.repositories %>
     <p> Tree <tt>${self.link_to_object(object)}</tt> has been found in the following
-    ${h.pluralize(parents.count(), 'repository', 'repositories')}: </p>
+    ${h.pluralize(repos.count(), 'repository', 'repositories')}: </p>
     <ul>
-    % for parent in parents:
-      <li> ${self.link_to_view(parent, object)} </li>
+    % for repo in repos:
+      <li> ${self.link_to_view(repo, object)} </li>
     % endfor
     </ul>
     </p>
@@ -70,8 +70,8 @@
       <p> Additionally, this tree comes from the following  
       ${h.pluralize(len(object.commit_ids), 'commit')}: </p>
       <ul>
-      % for commit in object.commits:
-         <li> <tt>${self.link_to_object(commit)}</tt> </li>
+      % for commit_id in object.commit_ids:
+         <li> <tt>${self.link_to_object(commit_id)}</tt> </li>
       % endfor
       </ul>
       </p>
@@ -84,8 +84,8 @@
     ${h.pluralize(len(object.parent_ids), 'tree')}.  Its directory name is
     ${h.liststyled(object.names, ', ', '<tt>', '</tt>') | n}: </p>
     <ul>
-    % for tree in object.parents:
-      <li> <tt>${self.link_to_object(tree)}</tt> </li>
+    % for tree_id in object.parent_ids:
+      <li> <tt>${self.link_to_object(tree_id)}</tt> </li>
     % endfor
     </ul>
     </p>

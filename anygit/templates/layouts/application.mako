@@ -62,7 +62,11 @@ ${webhelpers.html.tags.end_form()}
 </%def>
 
 <%def name="link_to_object(obj)">
-<a href="${h.get_url(obj)}">${obj.id}</a>
+<%
+if not isinstance(obj, basestring):
+  obj = obj.id
+%>
+<a href="${h.get_url(obj)}">${obj}</a>
 </%def>
 
 <%def name="link_to_repo(repo, obj)">

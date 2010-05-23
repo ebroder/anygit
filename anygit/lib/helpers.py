@@ -18,7 +18,9 @@ git_gnome_org_re = re.compile(r'^(?:git|http)://git\.gnome\.org/([^/]*)$')
 cgit_freedesktop_org_re = re.compile(r'^(?:git|http)://anongit\.freedesktop\.org/(.*)$')
 
 def get_url(obj):
-    return util.url_for(controller='query', action='query', id=obj.id)
+    if not isinstance(obj, basestring):
+        obj = obj.id
+    return util.url_for(controller='query', action='query', id=obj)
 
 def github_com_handle(repo, obj, match):
     values = {'user' : match.group(1),
