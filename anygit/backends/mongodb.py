@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 max_transaction_window = 1000
 curr_transaction_window = 0
 connection = None
+save_classes = []
+collection_to_class = {}
 
 ## Exported functions
 
@@ -23,7 +25,7 @@ def create_schema():
     # Clear out the database
     GitObject._object_store.remove()
     GitObject._object_store.drop_index()
-    GitObject._object_store.ensure_index({'__type__' : 1})
+    GitObject._object_store.ensure_index({'type' : 1})
     GitObject._object_store.ensure_index({'repository_ids' : 1})
 
     Repository._object_store.remove()
@@ -36,16 +38,17 @@ def create_schema():
 def init_model(connection):
     """Call me before using any of the tables or classes in the model."""
     raw_db = connection.anygit
-
     db = connection.anygit
     # Transform
     db.add_son_manipulator(TransformObject())
 
-    GitObject._object_store = db.git_objects
-    GitObject._raw_object_store = raw_db.git_objects
-
-    Repository._object_store = db.repositories
-    Repository._raw_object_store = raw_db.repositories
+    for obj in globals().itervalues():
+        if type(obj) == type and issubclass(obj, MongoDbModel) and hasattr(obj, '__tablename__'):
+            save_classes.append(obj)
+            tablename = getattr(obj, '__tablename__')
+            obj._object_store = getattr(db, tablename)
+            obj._raw_object_store = getattr(raw_db, tablename)
+            collection_to_class[obj._object_store] = obj
 
 def setup():
     """
@@ -61,26 +64,25 @@ def setup():
 
 def flush():
     logger.debug('Committing...')
-    classes = [GitObject, Repository]
-    for klass in classes:
+    for klass in save_classes:
         if klass._save_list:
             logger.debug('Saving %d %s instances...' % (len(klass._save_list), klass.__name__))
 
         for instance in klass._save_list:
-            updates = instance.get_updates()
             try:
+                updates = instance.get_updates()
                 klass._object_store.update({'_id' : instance.id},
                                            updates,
                                            upsert=True)
-            except pymongo.errors.InvalidStringData:
-                logger.critical('Had some trouble saving %r for %s' % (updates, instance))
+            except:
+                logger.critical('Had some trouble saving %s' % instance)
                 raise
             instance.mark_saved()
             instance.new = False
             instance._pending_save = False
             instance._changed = False
             instance._pending_updates.clear()
-        klass._save_list.clear()
+        klass._save_list = klass._save_list[0:0]
         klass._cache.clear()
         logger.debug('Saving %s complete.' % klass.__name__)
 
@@ -140,6 +142,7 @@ def convert_iterable(target, dest):
         return dest(target)
 
 def make_persistent_set():
+    # TODO: transparently diff and persist this.
     backend_attr = '__%s' % hex(random.getrandbits(128))
     def _getter(self):
         if not hasattr(self, backend_attr):
@@ -150,19 +153,23 @@ def make_persistent_set():
         setattr(self, backend_attr, value)
     return property(_getter, _setter)
 
-def make_persistent_attribute(default=None):
+def make_persistent_attribute(name, default=None):
     backend_attr = '__%s' % hex(random.getrandbits(128))
     def _getter(self):
         if not hasattr(self, backend_attr):
             setattr(self, backend_attr, default)
         return getattr(self, backend_attr)
     def _setter(self, value):
+        if hasattr(self, backend_attr) and value == getattr(self, backend_attr):
+            return
         self._changed = True
+        setting = self._pending_updates.setdefault('$set', {})
+        setting[name] = value
         setattr(self, backend_attr, value)
     return property(_getter, _setter)
 
 def rename_dict_keys(dict, to_backend=True):
-    attrs = [('_id', 'id'), ('__type__', 'type')]
+    attrs = [('_id', 'id')]
     if to_backend:
         for backend, frontend in attrs:
             if frontend in dict:
@@ -176,35 +183,62 @@ def rename_dict_keys(dict, to_backend=True):
 
 ## Classes
 
+
+class Error(Exception):
+    pass
+
+
+class AbstractMethodError(Exception):
+    pass
+
+
 class TransformObject(son_manipulator.SONManipulator):
     def transform_incoming(self, object, collection):
         """Transform an object heading for the database"""
-        return object.mongofy()
+        return object
 
     def transform_outgoing(self, son, collection):
         """Transform an object retrieved from the database"""
-        if '__type__' in son:
-            klass = classify(son['__type__'])
+        if 'type' in son:
+            klass = classify(son['type'])
             return klass.demongofy(son)
         else:
-            return son
+            try:
+                return collection_to_class[collection].demongofy(son)
+            except KeyError:
+                return son
+
+class Map(object):
+    def __init__(self, result, fun):
+        self.result = result
+        self._iterator = (fun(i) for i in result)
+
+    def __iter__(self):
+        return iter(self._iterator)
+
+    def count(self):
+        return self.result.count()
+
+    def next(self):
+        return self._iterator.next()
+        
 
 class MongoDbModel(object):
     # Should provide these in subclasses
     _cache = {}
-    _object_store = None
-    _raw_object_store = None
     _save_list = None
     batched = True
+    has_type = True
 
     # Attributes: id, type
 
     def __init__(self, _raw_dict={}, **kwargs):
         rename_dict_keys(kwargs, to_backend=True)
-        kwargs.update(_raw_dict)
+        self._pending_updates = {}
+        self._init_from_dict(_raw_dict)
+        self._pending_updates.clear()
         self._init_from_dict(kwargs)
         self.new = True
-        self._pending_updates = {}
         self._pending_save = False
         self._changed = False
 
@@ -232,11 +266,6 @@ class MongoDbModel(object):
         
     def _add_to_set(self, set_name, value):
         return self._add_all_to_set(set_name, set([value]))
-
-    def _set(self, attr, value):
-        setting = self._pending_updates.setdefault('$set', {})
-        setting[attr] = value
-        setattr(self, attr, value)
 
     @property
     def type(self):
@@ -291,7 +320,7 @@ class MongoDbModel(object):
 
     @classmethod
     def all(cls):
-        return cls._object_store.find({'__type__' : cls.__name__.lower()})
+        return cls._object_store.find()
 
     @classmethod
     def exists(cls, **kwargs):
@@ -320,7 +349,7 @@ class MongoDbModel(object):
                 return True
             elif self.batched:
                 self._cache[self.id] = self
-                self._save_list.add(self)
+                self._save_list.append(self)
                 if self._pending_save:
                     return
                 self._pending_save = True
@@ -330,8 +359,7 @@ class MongoDbModel(object):
                 else:
                     curr_transaction_window += 1
             else:
-                # TODO: don't have to clobber the whole object here...
-                self._object_store.update({'_id' : self.id}, self.mongofy(), upsert=True)
+                raise NotImplementedError('Non batched saves are not supported')
             return True
         else:
             return False
@@ -339,9 +367,10 @@ class MongoDbModel(object):
     def delete(self):
         raise NotImplementedError()
 
-    def mongofy(self, mongo_object):
+    def mongofy(self, mongo_object=None):
+        if mongo_object is None:
+            return {}
         mongo_object['_id'] = self.id
-        mongo_object['__type__'] = self.type
         return mongo_object
 
     @classmethod
@@ -364,12 +393,16 @@ class MongoDbModel(object):
     @classmethod
     def count_instances(cls, **kwargs):
         """Find the number of objects that match the given criteria"""
-        kwargs['__type__'] = cls.__name__.lower()
+        kwargs['type'] = cls.__name__.lower()
         return cls._object_store.find(kwargs).count()
 
     def get_updates(self):
         # Hack to add *something* for new insertions
-        self._pending_updates.setdefault('$set', {}).setdefault('__type__', self.type)
+        if self.has_type:
+            self._pending_updates.setdefault('$set', {}).setdefault('type', self.type)
+        elif not self._pending_updates:
+            # Doing an upsert requires a non-empty object, so put in something small
+            self._pending_updates.setdefault('$set', {}).setdefault('d', 1)
         return self._pending_updates
 
     def mark_saved(self):
@@ -391,21 +424,155 @@ class MongoDbModel(object):
         return self.id == other.id
 
 
+class GitObjectAssociation(MongoDbModel, common.CommonMixin):
+    has_type = False
+    key1_name = None
+    key2_name = None
+
+    def __init__(self, key1=None, key2=None, _raw_dict={}):
+        super(GitObjectAssociation, self).__init__(_raw_dict=_raw_dict)
+        if key1:
+            setattr(self, self.key1_name, key1)
+        if key2:
+            setattr(self, self.key2_name, key2)
+        if key1 and key2:
+            self._id = key1 + key2
+
+    def mongofy(self, mongo_object=None):
+        if mongo_object is None:
+            return {}
+        super(GitObjectAssociation, self).mongofy(mongo_object)
+        mongo_object[self.key1_name] = getattr(self, self.key1_name)
+        mongo_object[self.key2_name] = getattr(self, self.key2_name)
+        return mongo_object
+
+    @property
+    def id(self):
+        return self._id
+
+    @id.setter
+    def id(self, value):
+        assert len(value) == 80
+        setattr(self, self.key1_name, value[0:40])
+        setattr(self, self.key2_name, value[40:80])
+
+    @classmethod
+    def get_all(cls, sha1):
+        safe_sha1 = '^%s' % re.escape(sha1)
+        return cls._object_store.find({'_id' : re.compile(safe_sha1)})
+
+    def __str__(self):
+        return '%s: %s=%s, %s=%s' % (self.type,
+                                     self.key1_name, getattr(self, self.key1_name),
+                                     self.key2_name, getattr(self, self.key2_name))
+
+
+class BlobTree(GitObjectAssociation):
+    __tablename__ = 'blob_trees'
+    _save_list = []
+    _cache = {}
+    key1_name = 'blob_id'
+    key2_name = 'tree_id'
+
+    name = make_persistent_attribute('name')
+
+    def mongofy(self, mongo_object={}):
+        if mongo_object is None:
+            return {}
+        super(BlobTree, self).mongofy(mongo_object)
+        mongo_object['name'] = self.name
+        return mongo_object
+
+
+class BlobTag(GitObjectAssociation):
+    __tablename__ = 'blob_tags'
+    _save_list = []
+    _cache = {}
+    key1_name = 'blob_id'
+    key2_name = 'tag_id'
+
+
+class TreeParentTree(GitObjectAssociation):
+    __tablename__ = 'tree_parent_trees'
+    _save_list = []
+    _cache = {}
+    key1_name = 'tree_id'
+    key2_name = 'parent_tree_id'
+
+    name = make_persistent_attribute('name')
+
+    def mongofy(self, mongo_object=None):
+        if mongo_object is None:
+            return {}
+        super(TreeParentTree, self).mongofy(mongo_object)
+        mongo_object['name'] = self.name
+        return mongo_object
+
+class TreeCommit(GitObjectAssociation):
+    __tablename__ = 'tree_commits'
+    _save_list = []
+    _cache = {}
+    key1_name = 'tree_id'
+    key2_name = 'commit_id'
+
+
+class TreeTag(GitObjectAssociation):
+    __tablename__ = 'tree_tags'
+    _save_list = []
+    _cache = {}
+    key1_name = 'tree_id'
+    key2_name = 'tag_id'
+
+
+class CommitParentCommit(GitObjectAssociation):
+    __tablename__ = 'commit_parent_commits'
+    _save_list = []
+    _cache = {}
+    key1_name = 'commit_id'
+    key2_name = 'parent_commit_id'
+
+
+class CommitTree(GitObjectAssociation):
+    __tablename__ = 'commit_trees'
+    _save_list = []
+    _cache = {}
+    key1_name = 'commit_id'
+    key2_name = 'tree_id'
+
+    name = make_persistent_attribute('name')
+
+    def mongofy(self, mongo_object=None):
+        if mongo_object is None:
+            return {}
+        super(CommitTree, self).mongofy(mongo_object)
+        mongo_object['name'] = self.name
+        return mongo_object
+
+
+class CommitTag(GitObjectAssociation):
+    __tablename__ = 'commit_tags'
+    _save_list = []
+    _cache = {}
+    key1_name = 'commit_id'
+    key2_name = 'tag_id'
+
+
+class TagParentTag(GitObjectAssociation):
+    __tablename__ = 'tag_parent_tags'
+    _save_list = []
+    _cache = {}
+    key1_name = 'tag_id'
+    key2_name = 'parent_tag_id'
+
+
 class GitObject(MongoDbModel, common.CommonGitObjectMixin):
     """The base class for git objects (such as blobs, commits, etc..)."""
     # Attributes: repository_ids, tag_ids, dirty
-    _save_list = set()
+    __tablename__ = 'git_objects'
+    _save_list = []
     _cache = {}
     repository_ids = make_persistent_set()
-    tag_ids = make_persistent_set()
-    dirty = make_persistent_attribute()
-
-    def mongofy(self, mongo_object):
-        super(GitObject, self).mongofy(mongo_object)
-        mongo_object['dirty'] = self.dirty
-        mongo_object['tag_ids'] = list(self.tag_ids)
-        mongo_object['repository_ids'] = list(self.repository_ids)
-        return mongo_object
+    dirty = make_persistent_attribute('dirty')
 
     @classmethod
     def lookup_by_sha1(cls, sha1, partial=False, offset=0, limit=10):
@@ -423,19 +590,17 @@ class GitObject(MongoDbModel, common.CommonGitObjectMixin):
         if cls == GitObject:
             return cls._object_store.find()
         else:
-            return super(GitObject, cls).all()
+            return cls._object_store.find({'type' : cls.__name__.lower()})
 
     def mark_dirty(self, value):
         self.dirty = value
-        self._set('dirty', value)
 
     @property
     def repositories(self):
         return Repository.find_matching(self.repository_ids)
 
     def add_tag(self, tag_id):
-        tag_id = canonicalize_to_id(tag_id)
-        self._add_to_set('tag_ids', tag_id)
+        raise AbstractMethodError()
 
     @property
     def tags(self):
@@ -445,24 +610,21 @@ class GitObject(MongoDbModel, common.CommonGitObjectMixin):
 class Blob(GitObject, common.CommonBlobMixin):
     """Represents a git Blob.  Has an id (the sha1 that identifies this
     object)"""
-    # Attributes: parent_ids.
-    parent_ids_with_names = make_persistent_set()
-
-    def mongofy(self, mongo_object=None):
-        if mongo_object is None:
-            mongo_object = {}
-        super(Blob, self).mongofy(mongo_object)
-        mongo_object['parent_ids_with_names'] = [list(entry) for entry in self.parent_ids_with_names]
-        return mongo_object
 
     def add_parent(self, parent_id, name):
         name = sanitize_unicode(name)
         parent_id = canonicalize_to_id(parent_id)
-        self._add_to_set('parent_ids_with_names', (parent_id, name))
+        b = BlobTree(key1=self.id, key2=parent_id)
+        b.name = name
+        b.save()
+
+    @property
+    def parent_ids_with_names(self):
+        return Map(BlobTree.get_all(self.id), lambda bt: (bt.tree_id, bt.name))
 
     @property
     def parent_ids(self):
-        return set(id for (id, name) in self.parent_ids_with_names)
+        return (id for (id, name) in self.parent_ids_with_names)
 
     @property
     def names(self):
@@ -481,33 +643,33 @@ class Blob(GitObject, common.CommonBlobMixin):
         self._add_to_set('repository_ids', repository_id)
 
 
+### Still working here.
+
 class Tree(GitObject, common.CommonTreeMixin):
     """Represents a git Tree.  Has an id (the sha1 that identifies this
     object)"""
-    # Attributes: subtree_ids, blob_ids, parent_ids
-    commit_ids = make_persistent_set()
-    submodule_ids = make_persistent_set()
-    parent_ids_with_names = make_persistent_set()
-    children_ids = make_persistent_set()
 
     def add_parent(self, parent_id, name):
         """Give this tree a parent.  Also updates the parent to know
         about this tree."""
         name = sanitize_unicode(name)
         parent_id = canonicalize_to_id(parent_id)
-        self._add_to_set('parent_ids_with_names', (parent_id, name))
+        b = TreeParentTree(key1=self.id, key2=parent_id)
+        b.name = name
+        b.save()
+
+    @property
+    def parent_ids_with_names(self):
+        return Map(TreeParentTree.get_all(self.id), lambda tpt: (tpt.tree_id, tpt.name))
 
     def add_commit(self, commit_id):
         commit_id = canonicalize_to_id(commit_id)
-        self._add_to_set('commit_ids', commit_id)
+        t = TreeCommit(key1=self.id, key2=commit_id)
+        t.save()
 
-    def add_child(self, child_id):
-        child_id = canonicalize_to_id(child_id)
-        self._add_to_set('children_ids', child_id)
-
-    def add_submodule(self, submodule_id):
-        submodule_id = canonicalize_to_id(submodule_id)
-        self._add_to_set('submodule_ids', submodule_id)
+    @property
+    def commit_ids(self):
+        return Map(TreeCommit.get_all(self.id), lambda tc: tc.commit_id)
 
     @property
     def commits(self):
@@ -526,34 +688,11 @@ class Tree(GitObject, common.CommonTreeMixin):
         return Tree.find_matching(self.parent_ids)
 
     @property
-    def children(self):
-        return GitObject.find_matching(self.children_ids)
-
-    @property
-    def submodules(self):
-        return Commit.find_matching(self.submodule_ids)
-
-    def mongofy(self, mongo_object=None):
-        if mongo_object is None:
-            mongo_object = {}
-        super(Tree, self).mongofy(mongo_object)
-        mongo_object['commit_ids'] = list(self.commit_ids)
-        mongo_object['children_ids'] = list(self.children_ids)
-        mongo_object['submodule_ids'] = list(self.submodule_ids)
-        mongo_object['parent_ids_with_names'] = [list(entry) for entry in self.parent_ids_with_names]
-        return mongo_object
-
-    @property
     def parents_with_names(self):
         return set((Tree.get(id), name) for (id, name) in self.parent_ids_with_names)
 
-    def add_repository(self, repository_id, recursive=False):
+    def add_repository(self, repository_id):
         repository_id = canonicalize_to_id(repository_id)
-        if repository_id in self.repository_ids:
-            return
-        if recursive:
-            for obj in self.children:
-                obj.add_repository(repository_id, recursive=True)
         self._add_to_set('repository_ids', repository_id)
         self.save()
 
@@ -561,57 +700,22 @@ class Tree(GitObject, common.CommonTreeMixin):
 class Tag(GitObject, common.CommonTagMixin):
     """Represents a git Tree.  Has an id (the sha1 that identifies this
     object)"""
-    # Attributes: object_id, repository_ids
-    object_id = make_persistent_attribute()
 
-    def add_repository(self, repository_id, recursive=False):
+    def add_repository(self, repository_id):
         repository_id = canonicalize_to_id(repository_id)
-        if repository_id in self.repository_ids:
-            return
-        if recursive:
-            self.object.add_repository(repository_id, recursive=True)
         self._add_to_set('repository_ids', repository_id)
         self.save()
-
-    def mongofy(self, mongo_object=None):
-        if mongo_object is None:
-            mongo_object = {}
-        super(Tag, self).mongofy(mongo_object)
-        mongo_object['object_id'] = self.object_id
-        mongo_object['repository_ids'] = list(self.repository_ids)
-        return mongo_object
-
-    def set_object(self, o_id):
-        o_id = canonicalize_to_id(o_id)
-        self._set('object_id', o_id)
-
-    @property
-    def object(self):
-        return GitObject.get(self.object_id)
 
 
 class Commit(GitObject, common.CommonCommitMixin):
     """Represents a git Commit.  Has an id (the sha1 that identifies
     this object).  Also contains blobs, trees, and tags."""
-    # tree_id, parent_ids, submodule_of_with_names
-    tree_id = make_persistent_attribute()
     parent_ids = make_persistent_set()
-    submodule_of_with_names = make_persistent_set()
 
     def add_repository(self, repository_id, recursive=False):
         repository_id = canonicalize_to_id(repository_id)
-        if repository_id in self.repository_ids:
-            return
-        if recursive:
-            for parent in self.parents:
-                parent.add_repository(repository_id, recursive=True)
-            self.tree.add_repository(repository_id, recursive=True)
         self._add_to_set('repository_ids', repository_id)
         self.save()
-
-    def set_tree(self, tree_id):
-        tree_id = canonicalize_to_id(tree_id)
-        self._set('tree_id', tree_id)
 
     def add_parent(self, parent):
         self.add_parents([parent])
@@ -620,19 +724,16 @@ class Commit(GitObject, common.CommonCommitMixin):
         parent_ids = set(canonicalize_to_id(p) for p in parent_ids)
         self._add_all_to_set('parent_ids', parent_ids)
 
-    def add_as_submodule_of(self, repo_id, name):
+    def add_as_submodule_of(self, tree_id, name):
+        tree_id = canonicalize_to_id(tree_id)
         name = sanitize_unicode(name)
-        repo_id = canonicalize_to_id(repo_id)
-        self._add_to_set('submodule_of_with_names', (repo_id, name))
+        b = CommitTree(key1=self.id, key2=tree_id)
+        b.name = name
+        b.save()
 
-    def mongofy(self, mongo_object=None):
-        if mongo_object is None:
-            mongo_object = {}
-        super(Commit, self).mongofy(mongo_object)
-        mongo_object['tree_id'] = self.tree_id
-        mongo_object['parent_ids'] = list(self.parent_ids)
-        mongo_object['submodule_of_with_names'] = [list(entry) for entry in self.submodule_of_with_names]
-        return mongo_object
+    @property
+    def submodule_of_with_names(self):
+        return Map(CommitTree.get_all(self.id), lambda ct: (ct.tree_id, ct.name))
 
     @property
     def submodule_of(self):
@@ -642,42 +743,26 @@ class Commit(GitObject, common.CommonCommitMixin):
     def parents(self):
         return Commit.find_matching(self.parent_ids)
 
-    @property
-    def tree(self):
-        return Tree.get(self.tree_id)
-
 
 class Repository(MongoDbModel, common.CommonRepositoryMixin):
     """A git repository.  Contains many commits."""
-    _save_list = set()
+    _save_list = []
+    __tablename__ = 'repositories'
 
     # Attributes: url, last_index, indexing, commit_ids
-    url = make_persistent_attribute()
-    last_index = make_persistent_attribute(default=datetime.datetime(1970,1,1))
-    indexing = make_persistent_attribute(default=False)
+    url = make_persistent_attribute('url')
+    last_index = make_persistent_attribute('last_index', default=datetime.datetime(1970,1,1))
+    indexing = make_persistent_attribute('indexing', default=False)
     commit_ids = make_persistent_set()
-    been_indexed = make_persistent_attribute(default=False)
-    approved = make_persistent_attribute(default=False)
-    count = make_persistent_attribute(default=0)
+    been_indexed = make_persistent_attribute('been_indexed', default=False)
+    approved = make_persistent_attribute('approved', default=False)
+    count = make_persistent_attribute('count', default=0)
 
     def __init__(self, *args, **kwargs):
         super(Repository, self).__init__(*args, **kwargs)
         # TODO: persist this.
         if not hasattr(self, 'remote_heads'):
             self.remote_heads = {}
-
-    def mongofy(self, mongo_object=None):
-        if mongo_object is None:
-            mongo_object = {}
-        super(Repository, self).mongofy(mongo_object)
-        mongo_object['url'] = self.url
-        mongo_object['indexing'] = self.indexing
-        mongo_object['last_index'] = self.last_index
-        mongo_object['commit_ids'] = list(self.commit_ids)
-        mongo_object['been_indexed'] = self.been_indexed
-        mongo_object['approved'] = self.approved
-        mongo_object['count'] = self.count
-        return mongo_object
 
     @classmethod
     def get_indexed_before(cls, date):
@@ -705,7 +790,7 @@ class Repository(MongoDbModel, common.CommonRepositoryMixin):
         return full
 
     def set_count(self, value):
-        self._set('count', value)
+        self.count = value
 
     def count_objects(self):
         return GitObject._object_store.find({'repository_ids' : self.id}).count()

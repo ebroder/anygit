@@ -11,7 +11,16 @@ __MODEL_VARS = ['create_schema',
                 'Tree',
                 'Tag',
                 'Commit',
-                'Repository']
+                'Repository',
+                'BlobTree',
+                'BlobTag',
+                'TreeParentTree',
+                'TreeCommit',
+                'TreeTag',
+                'CommitParentCommit',
+                'CommitTree',
+                'CommitTag',
+                'TagParentTag']
 
 # Get the first (and only) entry point, and extract the given
 # names into our namespace.

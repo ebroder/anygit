@@ -140,21 +140,17 @@ def _process_object(repo, obj, progress, type_mapper):
             if child_type == 'tree':
                 child = models.Tree.get_from_cache_or_new(id=sha1)
                 child.add_parent(indexed_object, name=name)
-                indexed_object.add_child(child)
             elif child_type == 'blob':
                 child = models.Blob.get_from_cache_or_new(id=sha1)
                 child.add_parent(indexed_object, name=name)
-                indexed_object.add_child(child)
             else:
                 assert child_type == 'commit'
                 child = models.Commit.get_from_cache_or_new(id=sha1)
                 child.add_as_submodule_of(indexed_object, name=name)
-                indexed_object.add_submodule(child)
             child.save()
     elif obj._type == 'commit':
         indexed_object = models.Commit.get_from_cache_or_new(id=obj.id)
         indexed_object.add_parents(obj.parents)
-        indexed_object.set_tree(obj.tree)
 
         child = models.Tree.get_from_cache_or_new(id=obj.tree)
         child.add_commit(indexed_object)
