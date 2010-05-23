@@ -20,7 +20,8 @@ __MODEL_VARS = ['create_schema',
                 'CommitParentCommit',
                 'CommitTree',
                 'CommitTag',
-                'TagParentTag']
+                'TagParentTag',
+                'Aggregate']
 
 # Get the first (and only) entry point, and extract the given
 # names into our namespace.

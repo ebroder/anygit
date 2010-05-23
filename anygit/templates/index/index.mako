@@ -6,15 +6,17 @@
     from pylons import url
     from routes.util import url_for
     from anygit import models
+    aggregate = models.Aggregate.get()
 %>
 
 <p>Welcome to <b>anygit</b>, indexing the world's Git repositories
 one at a time. Currently
-<b>${models.Repository.count_instances(been_indexed=True)}</b> repos have been
+<b>${aggregate.indexed_repository_count()}</b> repos have been
 indexed and counting. We also have thus far indexed
-<b>${models.Blob.count_instances()}</b> blobs,
-<b>${models.Tree.count_instances()}</b> trees, and
-<b>${models.Commit.count_instances()}</b> commits.</p>
+<b>${aggregate.blob_count()}</b> blobs,
+<b>${aggregate.tree_count()}</b> trees,
+<b>${aggregate.commit_count()}</b> commits, and
+<b>${aggregate.tag_count()}</b> tags.</p>
 
 <h2>Request indexing</h2>
 

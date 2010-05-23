@@ -766,27 +766,17 @@ class Repository(MongoDbModel, common.CommonRepositoryMixin):
 
 
 class Aggregate(MongoDbModel):
-    indexed_repository_count = make_persistent_attribute(default=0)
-    blob_count = make_persistent_attribute(default=0)
-    tree_count = make_persistent_attribute(default=0)
-    commit_count = make_persistent_attribute(default=0)
-    tag_count = make_persistent_attribute(default=0)
+    """Singleton class that contains aggregate data about the indexer"""
+    instance = None
+
+    indexed_repository_count = make_persistent_attribute('indexed_repository_count', default=0)
+    blob_count = make_persistent_attribute('blob_count', default=0)
+    tree_count = make_persistent_attribute('tree_count', default=0)
+    commit_count = make_persistent_attribute('commit_count', default=0)
+    tag_count = make_persistent_attribute('tag_count', default=0)
 
     @classmethod
     def get(cls):
-        return super(Aggregate, cls).get(id='main')
-
-    def set_indexed_repository_count(self, value):
-        self._set('indexed_repository_count', value)
-
-    def set_blob_count(self, value):
-        self._set('blob_count', value)
-    
-    def set_tree_count(self, value):
-        self._set('tree_count')
-
-    def set_commit_count(self, value):
-        self._set('commit_count', value)
-
-    def set_tag_count(self, value):
-        self._set('tag_count', value)
+        if not cls.instance:
+            cls.instance = super(Aggregate, cls).get(id='main')
+        return cls.instance
