@@ -285,13 +285,8 @@ def check_for_die_file():
         logger.info('Die file encountered; exiting')
         raise DieFile('Die file encountered')
 
-def refresh_count(repo):
-    count = repo.count_objects()
-    repo.set_count(count)
-    logger.info('Setting count for %s to %d' % (repo, count))
-    repo.save()
-
 def refresh_all_counts():
-    for repo in models.Repository.all():
-        refresh_count(repo)
+    aggregator = models.Aggregate.get()
+    aggregator.refresh_all_counts()
+    aggregator.save()
     models.flush()

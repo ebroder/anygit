@@ -23,15 +23,12 @@ collection_to_class = {}
 
 def create_schema():
     # Clear out the database
-    GitObject._object_store.remove()
-    GitObject._object_store.drop_index()
-    GitObject._object_store.ensure_index({'type' : 1})
-    GitObject._object_store.ensure_index({'repository_ids' : 1})
+    for klass in collection_to_class.itervalues():
+        klass._object_store.remove()
+        klass._object_store.drop_index()
 
-    Repository._object_store.remove()
-    Repository._object_store.drop_index()
+    # Set up indexes
     Repository._object_store.ensure_index({'url' : 1})
-    Repository._object_store.ensure_index({'been_indexed' : 1})
     Repository._object_store.ensure_index({'approved' : 1})
     Repository._object_store.ensure_index({'count' : 1})
 
@@ -228,7 +225,7 @@ class MongoDbModel(object):
     _cache = {}
     _save_list = None
     batched = True
-    has_type = True
+    has_type = False
 
     # Attributes: id, type
 
@@ -273,6 +270,8 @@ class MongoDbModel(object):
 
     @classmethod
     def find(cls, kwargs):
+        if cls.has_type:
+            kwargs.setdefault('type', cls.__name__.lower())
         return cls._object_store.find(kwargs)
 
     @classmethod
@@ -383,12 +382,6 @@ class MongoDbModel(object):
         """Given a list of ids, find the matching objects"""
         kwargs.update({'_id' : { '$in' : list(ids) }})
         return cls._object_store.find(kwargs)
-
-    @classmethod
-    def count_instances(cls, **kwargs):
-        """Find the number of objects that match the given criteria"""
-        kwargs['type'] = cls.__name__.lower()
-        return cls._object_store.find(kwargs).count()
 
     def get_updates(self):
         # Hack to add *something* for new insertions
@@ -535,6 +528,7 @@ class GitObject(MongoDbModel, common.CommonGitObjectMixin):
     """The base class for git objects (such as blobs, commits, etc..)."""
     # Attributes: repository_ids, tag_ids, dirty
     __tablename__ = 'git_objects'
+    has_type = True
     _save_list = []
     _cache = {}
     repository_ids = make_persistent_set()
@@ -765,9 +759,11 @@ class Repository(MongoDbModel, common.CommonRepositoryMixin):
         return 'Repository: %s' % self.url
 
 
-class Aggregate(MongoDbModel):
+class Aggregate(MongoDbModel, common.CommonMixin):
     """Singleton class that contains aggregate data about the indexer"""
+    __tablename__ = 'aggregate'
     instance = None
+    _save_list = []
 
     indexed_repository_count = make_persistent_attribute('indexed_repository_count', default=0)
     blob_count = make_persistent_attribute('blob_count', default=0)
@@ -775,8 +771,56 @@ class Aggregate(MongoDbModel):
     commit_count = make_persistent_attribute('commit_count', default=0)
     tag_count = make_persistent_attribute('tag_count', default=0)
 
+    class index_executor(object):
+        def __init__(self, klass, field):
+            self.klass = klass
+            self.field = field
+
+        def __enter__(self):
+            self.klass._object_store.ensure_index(self.field)
+        
+        def __exit__(self, type, value, traceback):
+            for name, value in self.klass._object_store.index_information().iteritems():
+                try:
+                    if len(value) == 1 and value[0][0] == self.field:
+                        self.klass._object_store.drop_index(name)
+                        break
+                except TypeError:
+                    logger.error('Unexpected index information output %sf for' %
+                                 (value, self.field, self.klass.__name__))
+            else:
+                logger.error('No index on %s found for %s' % (self.field, self.klass.__name__))
+
     @classmethod
     def get(cls):
         if not cls.instance:
-            cls.instance = super(Aggregate, cls).get(id='main')
+            try:
+                cls.instance = super(Aggregate, cls).get(id='main')
+            except exceptions.DoesNotExist:
+                cls.instance = cls.create(id='main')
+                flush()
         return cls.instance
+
+    def refresh_all_counts(self):
+        with Aggregate.index_executor(GitObject, 'repository_ids'):
+            for repo in Repository.all():
+                count = repo.count_objects()
+                repo.set_count(count)
+                logger.info('Setting count for %s to %d' % (repo, count))
+                repo.save()
+
+        with Aggregate.index_executor(Repository, 'been_indexed'):
+            count = self.indexed_repository_count = Repository.find({'been_indexed' : True}).count()
+            logger.info('Looks like there are %d indexed repositories' % count)
+        self.save()
+        flush()
+
+        with Aggregate.index_executor(GitObject, 'type'):
+            self.blob_count = Blob.find({}).count()
+            self.tree_count = Tree.find({}).count()
+            self.commit_count = Commit.find({}).count()
+            self.tag_count = Tag.find({}).count()
+            logger.info('Also, there are %d blobs, %d trees, %d commits, and %d tags' %
+                        (self.blob_count, self.tree_count, self.commit_count, self.tag_count))
+        self.save()
+        flush()

@@ -4,19 +4,20 @@ import os
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from anygit import clisetup, models
+from anygit import clisetup
 from anygit.client import fetch
 
 def main():
-    parser = optparse.OptionParser('%prog [options] target')
+    parser = optparse.OptionParser('%prog [options] {refresh}')
     opts, args = parser.parse_args()
-    if len(args) != 1:
+    if not len(args):
         parser.print_help()
         return 1
-    target  = args[0]
-    r = models.Repository.get_or_create(url=target)
-    models.flush()
-    fetch.fetch_and_index(r, recover_mode=True)
+    if args[0] == 'refresh':
+        fetch.refresh_all_counts()
+    else:
+        parser.print_help()
+        return 3
 
 if __name__ == '__main__':
     sys.exit(main())
