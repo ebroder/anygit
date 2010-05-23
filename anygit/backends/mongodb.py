@@ -365,9 +365,8 @@ class MongoDbModel(object):
         return cls._object_store.find(kwargs).count()
 
     def get_updates(self):
-        if self.new:
-            # Hack to add *something* for new insertions
-            self._pending_updates.setdefault('$set', {}).setdefault('__type__', self.type)
+        # Hack to add *something* for new insertions
+        self._pending_updates.setdefault('$set', {}).setdefault('__type__', self.type)
         return self._pending_updates
 
     def __str__(self):
