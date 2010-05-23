@@ -24,6 +24,7 @@ def create_schema():
     GitObject._object_store.remove()
     GitObject._object_store.drop_index()
     GitObject._object_store.ensure_index({'__type__' : 1})
+    GitObject._object_store.ensure_index({'repository_ids' : 1})
 
     Repository._object_store.remove()
     Repository._object_store.drop_index()
