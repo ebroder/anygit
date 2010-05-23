@@ -112,6 +112,17 @@ def canonicalize_to_object(id, cls=None):
         raise exceptions.Error('Illegal type %s (instance %r)' % (type(id), id))
     return id, obj
 
+def sanitize_unicode(u):
+    if isinstance(u, str):
+        try:
+            return unicode(u, 'utf-8')
+        except UnicodeDecodeError:
+            sanitized = unicode(u, 'utf-8', 'ignore')
+            logger.error('Invalid unicode detected: %r.  Sanitizing to %s.' % (u, sanitized))
+            return sanitized
+    else:
+        return u
+
 def convert_iterable(target, dest):
     if not hasattr(target, '__iter__'):
         return target
@@ -436,6 +447,7 @@ class Blob(GitObject, common.CommonBlobMixin):
         return mongo_object
 
     def add_parent(self, parent_id, name):
+        name = sanitize_unicode(name)
         parent_id = canonicalize_to_id(parent_id)
         self._add_to_set('parent_ids_with_names', (parent_id, name))
 
@@ -472,6 +484,7 @@ class Tree(GitObject, common.CommonTreeMixin):
     def add_parent(self, parent_id, name):
         """Give this tree a parent.  Also updates the parent to know
         about this tree."""
+        name = sanitize_unicode(name)
         parent_id = canonicalize_to_id(parent_id)
         self._add_to_set('parent_ids_with_names', (parent_id, name))
 
@@ -599,6 +612,7 @@ class Commit(GitObject, common.CommonCommitMixin):
         self._add_all_to_set('parent_ids', parent_ids)
 
     def add_as_submodule_of(self, repo_id, name):
+        name = sanitize_unicode(name)
         repo_id = canonicalize_to_id(repo_id)
         self._add_to_set('submodule_of_with_names', (repo_id, name))
 
