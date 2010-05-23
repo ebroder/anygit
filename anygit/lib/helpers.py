@@ -15,6 +15,7 @@ git_kernel_org_re = re.compile(r'^(?:git|http)://git\.kernel\.org/pub/scm/([^/]*
 repo_or_cz_re = re.compile(r'^(?:git|http)://repo\.or\.cz/([^/]*)$')
 perl5_git_perl_org_re = re.compile(r'^(?:git|http)://perl5\.git\.perl\.org/([^/]*)$')
 git_gnome_org_re = re.compile(r'^(?:git|http)://git\.gnome\.org/([^/]*)$')
+cgit_freedesktop_org_re = re.compile(r'^(?:git|http)://anongit\.freedesktop\.org/([^/]*)$')
 
 def get_url(obj):
     return util.url_for(controller='query', action='query', id=obj.id)
@@ -65,26 +66,33 @@ def perl5_git_perl_org_handle(repo, obj, match):
         values['name'] = parent_and_name[1]
         return 'http://perl5.git.perl.org/%(extension)s/%(type)s/%(parent_id)s:/%(name)s' % values
 
+def _cgit_handle(base, repo, obj, match):
+    values = {'base' : base,
+              'extension' : match.group(1),
+              'sha1' : obj.id}
+    if obj.type == 'commit':
+        return '%(base)s/%(extension)s/commit/?id=%(sha1)s' % values
+    else:
+        parent_and_path = obj.get_path(repo)
+        if not parent_and_path:
+            return None
+        values['parent_id'] = parent_and_path[0].id
+        values['path'] = parent_and_path[1]
+        return ('%(base)s/%(extension)s/tree/%(path)s?id=%(parent_id)s' % values)
+
 def git_gnome_org_handle(repo, obj, match):
-        values = {'extension' : match.group(1),
-                  'sha1' : obj.id}
-        if obj.type == 'commit':
-            return 'http://git.gnome.org/browse/%(extension)s/commit/?id=%(sha1)s' % values
-        else:
-            parent_and_path = obj.get_path(repo)
-            if not parent_and_path:
-                return None
-            values['parent_id'] = parent_and_path[0].id
-            values['path'] = parent_and_path[1]
-            return ('http://git.gnome.org/browse/%(extension)s/tree/%(path)s?id=%(parent_id)s'
-                    % values)
+    return _cgit_handle('http://git.gnome.org/browse', repo, obj, match)
+
+def cgit_freedesktop_org_handle(repo, obj, match):
+    return _cgit_handle('http://cgit.freedesktop.org', repo, obj, match)
 
 def get_view_url_for(repo, obj):
     for regex, handler in [(github_com_re, github_com_handle),
                            (git_kernel_org_re, git_kernel_org_handle),
                            (repo_or_cz_re, repo_or_cz_handle),
                            (perl5_git_perl_org_re, perl5_git_perl_org_handle),
-                           (git_gnome_org_re, git_gnome_org_handle)]:
+                           (git_gnome_org_re, git_gnome_org_handle),
+                           (cgit_freedesktop_org_re, cgit_freedesktop_org_handle)]:
         match = regex.search(repo.url)
         if match:
             return handler(repo, obj, match)

@@ -12,6 +12,7 @@ def main():
               'repo.orcz' : spider.repo_or_cz_spider,
               'git.kernel.org' : spider.git_kernel_org_spider,
               'git.gnome.org' : spider.git_gnome_org_spider,
+              'cgit.freedesktop.org' : spider.cgit_freedesktop_org_spider,
               'fixed' : spider.fixed}
     parser = optparse.OptionParser('%%prog [options] {%s}' % ','.join(action))
     opts, args = parser.parse_args()

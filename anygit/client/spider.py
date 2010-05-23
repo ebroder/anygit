@@ -198,6 +198,18 @@ def git_gnome_org_spider():
         logger.info('Adding repo %s' % m)
         create(url='git://git.gnome.org/%s' % m)
 
+# cgit.freedesktop.org spider
+
+def cgit_freedesktop_org_spider():
+    logger.info('About to fetch http://cgit.freedesktop.org/')
+    content = fetch('http://git.gnome.org/browse/')
+    logger.info('About to extract data')
+    repo_extractor = re.compile("title='(.*?)'")
+    for match in repo_extractor.finditer(content):
+        m = match.group(1)
+        logger.info('Adding repo %s' % m)
+        create(url='git://anongit.freedesktop.org/%s' % m)
+
 # Spider for well-known repos
 
 def fixed():
