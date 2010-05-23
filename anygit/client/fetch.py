@@ -53,7 +53,7 @@ def check_validity(repo):
     else:
         return True
 
-def fetch(repo, recover_mode=False, discover_only=False):
+def fetch(repo, recover_mode=False, discover_only=False, get_count=False):
     """Fetch data from a remote.  If recover_mode, will fetch all data
     as if we had indexed none of it.  Otherwise will do the right thing
     with the pack protocol.  If discover_only, will fetch no data."""
@@ -68,7 +68,7 @@ def fetch(repo, recover_mode=False, discover_only=False):
         # requires a lot of database reads, which is unfortunately a
         # luxury we don't have.  Thus we only report the remote heads
         # that we have already seen from this repo.
-        if not recover_mode:
+        if not recover_mode and not get_count:
             # Strictly speaking, this only needs to return strings.
             matching_commits = set(c.id for c in models.Commit.find_matching(refs_dict.itervalues(),
                                                                              dirty=False)
@@ -186,6 +186,9 @@ def _process_data(repo, uncompressed_pack, progress):
         dirty.save()
     logger.info('Constructed object type map of size %s (%d bytes) for %s' %
                 (len(type_mapper), type_mapper.__sizeof__(), repo))
+    models.flush()
+    # And now let's count up for repo again
+    refresh_count(repo)
 
     logger.info('Now processing objects for %s' % repo)
     for obj in uncompressed_pack.iterobjects():
@@ -242,11 +245,11 @@ def fetch_and_index(repo, recover_mode=False):
         # Don't let other people try to index in parallel
         repo.indexing = True
         repo.save()
+        models.flush()
         data_path = fetch(repo, recover_mode=recover_mode)
         index_data(data_path, repo, is_path=True)
         repo.last_index = now
         repo.been_indexed = True
-        repo.save()
     except Exception, e:
         logger.error('Had a problem: %s' % traceback.format_exc())
     finally:
@@ -285,3 +288,14 @@ def check_for_die_file():
     if os.path.exists(os.path.join(DIR, 'die')):
         logger.info('Die file encountered; exiting')
         raise DieFile('Die file encountered')
+
+def refresh_count(repo):
+    count = repo.count_objects()
+    repo.set_count(count)
+    logger.info('Setting count for %s to %d' % (repo, count))
+    repo.save()
+
+def refresh_all_counts():
+    for repo in models.Repository.all():
+        refresh_count(repo)
+    models.flush()

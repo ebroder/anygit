@@ -10,7 +10,7 @@ from anygit import models
 from anygit.client import fetch
 
 def main():
-    parser = optparse.OptionParser('%prog [options] {add,list,approve}')
+    parser = optparse.OptionParser('%prog [options] {add,list,approve,refresh}')
     parser.add_option('-d', '--delay', dest='delay', type=int, default=1, help='Delay between remote requests')
     opts, args = parser.parse_args()
     if not len(args):
@@ -39,6 +39,12 @@ def main():
                     print '%s is dead' % repo
                     repo.approved = False
                     repo.save()
+    elif args[0] == 'refresh':
+        if len(args) > 1:
+            r = Repository.get(url=args[1])
+            fetch.refresh_count(r)
+        else:
+            fetch.refresh_all_counts()
     else:
         parser.print_help()
         return 3

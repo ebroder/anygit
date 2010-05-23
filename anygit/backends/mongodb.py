@@ -31,6 +31,7 @@ def create_schema():
     Repository._object_store.ensure_index({'url' : 1})
     Repository._object_store.ensure_index({'been_indexed' : 1})
     Repository._object_store.ensure_index({'approved' : 1})
+    Repository._object_store.ensure_index({'count' : 1})
 
 def init_model(connection):
     """Call me before using any of the tables or classes in the model."""
@@ -60,9 +61,10 @@ def setup():
 
 def flush():
     logger.debug('Committing...')
-    classes = [GitObject]
+    classes = [GitObject, Repository]
     for klass in classes:
-        logger.debug('Saving %d %s instances...' % (len(klass._save_list), klass.__name__))
+        if klass._save_list:
+            logger.debug('Saving %d %s instances...' % (len(klass._save_list), klass.__name__))
 
         for instance in klass._save_list:
             updates = instance.get_updates()
@@ -370,6 +372,12 @@ class MongoDbModel(object):
         self._pending_updates.setdefault('$set', {}).setdefault('__type__', self.type)
         return self._pending_updates
 
+    def mark_saved(self):
+        self.new = False
+        self._pending_save = False
+        self._changed = False
+        self._pending_updates.clear()
+
     def __str__(self):
         return '%s: %s' % (self.type, self.id)
 
@@ -420,12 +428,6 @@ class GitObject(MongoDbModel, common.CommonGitObjectMixin):
     def mark_dirty(self, value):
         self.dirty = value
         self._set('dirty', value)
-
-    def mark_saved(self):
-        self.new = False
-        self._pending_save = False
-        self._changed = False
-        self._pending_updates.clear()
 
     @property
     def repositories(self):
@@ -648,7 +650,6 @@ class Commit(GitObject, common.CommonCommitMixin):
 class Repository(MongoDbModel, common.CommonRepositoryMixin):
     """A git repository.  Contains many commits."""
     _save_list = set()
-    batched = False
 
     # Attributes: url, last_index, indexing, commit_ids
     url = make_persistent_attribute()
@@ -657,6 +658,7 @@ class Repository(MongoDbModel, common.CommonRepositoryMixin):
     commit_ids = make_persistent_set()
     been_indexed = make_persistent_attribute(default=False)
     approved = make_persistent_attribute(default=False)
+    count = make_persistent_attribute(default=0)
 
     def __init__(self, *args, **kwargs):
         super(Repository, self).__init__(*args, **kwargs)
@@ -674,6 +676,7 @@ class Repository(MongoDbModel, common.CommonRepositoryMixin):
         mongo_object['commit_ids'] = list(self.commit_ids)
         mongo_object['been_indexed'] = self.been_indexed
         mongo_object['approved'] = self.approved
+        mongo_object['count'] = self.count
         return mongo_object
 
     @classmethod
@@ -687,6 +690,12 @@ class Repository(MongoDbModel, common.CommonRepositoryMixin):
         else:
             return cls._object_store.find({'indexing' : False,
                                            'approved' : True})
+
+    def set_count(self, value):
+        self._set('count', value)
+
+    def count_objects(self):
+        return self._object_store.find({'repository_ids' : self.id}).count()
 
     def __str__(self):
         return 'Repository: %s' % self.url
