@@ -1,4 +1,4 @@
-<%inherit file="../layouts/application.mako"/>
+g<%inherit file="../layouts/application.mako"/>
 
 <%
   import pylons
@@ -49,7 +49,7 @@
     ${h.liststyled(object.names, ', ', '<tt>', '</tt>') | n}: </p>
     <ul>
     % for tree_id in object.parent_ids:
-      <li><tt>${self.link_to_object(tree)}</tt></li>
+      <li><tt>${self.link_to_object(tree_id)}</tt></li>
     % endfor
     </ul>
     </p>
