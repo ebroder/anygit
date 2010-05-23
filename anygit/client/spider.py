@@ -204,3 +204,5 @@ def fixed():
     repos = ['git://perl5.git.perl.org/metaconfig.git',
              'git://perl5.git.perl.org/perl.git']
     
+    for url in repos:
+        create(url=url)

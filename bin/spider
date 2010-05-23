@@ -11,8 +11,9 @@ def main():
     action = {'github.com' : spider.github_com_spider,
               'repo.orcz' : spider.repo_or_cz_spider,
               'git.kernel.org' : spider.git_kernel_org_spider,
-              'git.gnome.org' : spider.git_gnome_org_spider}
-    parser = optparse.OptionParser('%prog [options] {%s}' % ','.join(action))
+              'git.gnome.org' : spider.git_gnome_org_spider,
+              'fixed' : spider.fixed}
+    parser = optparse.OptionParser('%%prog [options] {%s}' % ','.join(action))
     opts, args = parser.parse_args()
     if len(args) != 1:
         parser.print_help()
