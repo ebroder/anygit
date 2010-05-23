@@ -1,3 +1,5 @@
+<%page cached="True"/>
+
 <%inherit file="../layouts/application.mako"/>
 
 <%
