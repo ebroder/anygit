@@ -454,6 +454,7 @@ class BlobTree(GitObjectAssociation):
     key2_name = 'tree_id'
 
     name = make_persistent_attribute('name')
+    mode = make_persistent_attribute('mode')
 
 
 class BlobTag(GitObjectAssociation):
@@ -472,6 +473,7 @@ class TreeParentTree(GitObjectAssociation):
     key2_name = 'parent_tree_id'
 
     name = make_persistent_attribute('name')
+    mode = make_persistent_attribute('mode')
 
 
 class TreeCommit(GitObjectAssociation):
@@ -506,6 +508,7 @@ class CommitTree(GitObjectAssociation):
     key2_name = 'tree_id'
 
     name = make_persistent_attribute('name')
+    mode = make_persistent_attribute('mode')
 
 
 class CommitTag(GitObjectAssociation):
@@ -571,11 +574,12 @@ class Blob(GitObject, common.CommonBlobMixin):
     """Represents a git Blob.  Has an id (the sha1 that identifies this
     object)"""
 
-    def add_parent(self, parent_id, name):
+    def add_parent(self, parent_id, name, mode):
         name = sanitize_unicode(name)
         parent_id = canonicalize_to_id(parent_id)
         b = BlobTree(key1=self.id, key2=parent_id)
         b.name = name
+        b.mode = mode
         b.save()
 
     @property
@@ -609,13 +613,14 @@ class Tree(GitObject, common.CommonTreeMixin):
     """Represents a git Tree.  Has an id (the sha1 that identifies this
     object)"""
 
-    def add_parent(self, parent_id, name):
+    def add_parent(self, parent_id, name, mode):
         """Give this tree a parent.  Also updates the parent to know
         about this tree."""
         name = sanitize_unicode(name)
         parent_id = canonicalize_to_id(parent_id)
         b = TreeParentTree(key1=self.id, key2=parent_id)
         b.name = name
+        b.mode = mode
         b.save()
 
     @property
@@ -684,11 +689,12 @@ class Commit(GitObject, common.CommonCommitMixin):
         parent_ids = set(canonicalize_to_id(p) for p in parent_ids)
         self._add_all_to_set('parent_ids', parent_ids)
 
-    def add_as_submodule_of(self, tree_id, name):
+    def add_as_submodule_of(self, tree_id, name, mode):
         tree_id = canonicalize_to_id(tree_id)
         name = sanitize_unicode(name)
         b = CommitTree(key1=self.id, key2=tree_id)
         b.name = name
+        b.mode = mode
         b.save()
 
     @property
