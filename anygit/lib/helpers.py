@@ -13,11 +13,13 @@ error = _Flash('error')
 github_com_re = re.compile(r'^(?:git|http)://github\.com/([^/]*)/([^/]*)\.git$')
 git_kernel_org_re = re.compile(r'^(?:git|http)://git\.kernel\.org/pub/scm/([^/]*)/(.*\.git$)')
 repo_or_cz_re = re.compile(r'^(?:git|http)://repo\.or\.cz/([^/]*)$')
+perl5_git_perl_org_re = re.compile(r'^(?:git|http)://perl5\.git\.perl\.org/([^/]*)$')
+git_gnome_org_re = re.compile(r'^(?:git|http)://git\.gnome\.org/([^/]*)$')
 
 def get_url(obj):
     return util.url_for(controller='query', action='query', id=obj.id)
 
-def _github_com_handle(repo, obj, match):
+def github_com_handle(repo, obj, match):
     values = {'user' : match.group(1),
               'repo' : match.group(2),
               'sha1' : obj.id,
@@ -36,23 +38,53 @@ def _github_com_handle(repo, obj, match):
     elif obj.type == 'tag':
         return get_view_url_for(repo, obj.object)
 
-def _git_kernel_org_handle(repo, obj, match):
+def git_kernel_org_handle(repo, obj, match):
     values = {'user' : match.group(1),
               'suffix' : match.group(2),
               'type' : obj.type,
               'sha1' : obj.id}
     return 'http://git.kernel.org/?p=%(user)s/%(suffix)s;a=%(type)s;h=%(sha1)s' % values
 
-def _repo_or_cz_handle(repo, obj, match):
+def repo_or_cz_handle(repo, obj, match):
     values = {'repo' : match.group(1),
               'type' : obj.type,
               'sha1' : obj.id}
     return 'http://repo.or.cz/w/%(repo)s/%(type)s/%(sha1)s' % values
 
+def perl5_git_perl_org_handle(repo, obj, match):
+    values = {'extension' : match.group(1),
+              'type' : obj.type,
+              'sha1' : obj.id}
+    if obj.type == 'commit' or obj.type == 'tree':
+        return 'http://perl5.git.perl.org/%(extension)s/%(type)s/%(sha1)s' % values
+    else:
+        parent_and_name = obj.get_path(repo, recursive=False)
+        if not parent_and_name:
+            return None
+        values['parent_id'] = parent_and_name[0].id
+        values['name'] = parent_and_name[1]
+        return 'http://perl5.git.perl.org/%(extension)s/%(type)s/%(parent_id)s:/%(name)s' % values
+
+def git_gnome_org_handle(repo, obj, match):
+        values = {'extension' : match.group(1),
+                  'sha1' : obj.id}
+        if obj.type == 'commit':
+            return 'http://git.gnome.org/browse/%(extension)s/commit/?id=%(sha1)s' % values
+        else:
+            parent_and_path = obj.get_path(repo)
+            if not parent_and_path:
+                return None
+            values['parent_id'] = parent_and_path[0].id
+            values['path'] = parent_and_path[1]
+            return ('http://git.gnome.org/browse/%(extension)s/tree/%(path)s?id=%(parent_id)s'
+                    % values)
+
 def get_view_url_for(repo, obj):
-    for regex, handler in [(github_com_re, _github_com_handle),
-                           (git_kernel_org_re, _git_kernel_org_handle),
-                           (repo_or_cz_re, _repo_or_cz_handle)]:
+    for regex, handler in [(github_com_re, github_com_handle),
+                           (git_kernel_org_re, git_kernel_org_handle),
+                           (repo_or_cz_re, repo_or_cz_handle),
+                           (perl5_git_perl_org_re, perl5_git_perl_org_handle),
+                           (git_gnome_org_re, git_gnome_org_handle)]:
         match = regex.search(repo.url)
         if match:
             return handler(repo, obj, match)

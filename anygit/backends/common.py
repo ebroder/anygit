@@ -120,17 +120,19 @@ class CommonGitObjectMixin(CommonMixin):
             self.error("id", "Must provide an id")
 
 class CommonBlobMixin(CommonGitObjectMixin):
-    def get_path(self, repo):
+    def get_path(self, repo, recursive=True):
         assert repo.id in self.repository_ids
         # Ok, recurse.
         for parent, name in self.parents_with_names:
             if repo.id in parent.repository_ids:
-                commit, base = parent.get_path(repo)
-                if base:
-                    return (commit, '%s/%s' % (base, name))
+                if recursive:
+                    commit, base = parent.get_path(repo)
+                    if base:
+                        return (commit, '%s/%s' % (base, name))
+                    else:
+                        return (commit, name)
                 else:
-                    return (commit, name)
-
+                    return (parent, name)
 
 
 class CommonTreeMixin(CommonGitObjectMixin):
