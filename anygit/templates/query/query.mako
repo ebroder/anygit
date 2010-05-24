@@ -24,44 +24,57 @@
 % endif
 
   % if object.type == 'commit':
-    <% repos = object.repositories %>
+    <% repos = object.limited_repositories(100) %>
     <p> Commit <tt>${self.link_to_object(object)}</tt> appears in the following
     ${h.pluralize(repos.count(), 'repository', 'repositories', when='plural')}: </p>
       <ul>
       % for repo in repos:
       <li> ${self.link_to_view(repo, object)} </li>
       % endfor
+      % if repos.count() > 100:
+      <li> And so on and so forth </li>
+      % endif
       </ul>
 
   % elif object.type == 'blob':
-    <% repos = object.repositories %>
+    <% repos = object.limited_repositories(100) %>
     <p> Blob <tt>${self.link_to_object(object)}</tt> has been found in the following
     ${h.pluralize(repos.count(), 'repository', 'repositories', when='plural')}: </p>
     <ul>
     % for repo in repos:
       <li> ${self.link_to_view(repo, object)} </li>
     % endfor
+      % if repos.count() > 100:
+      <li> And so on and so forth </li>
+      % endif
     </ul>
     </p>
 
     <p> Also, this blob comes from the following 
     ${h.pluralize(object.parent_ids.count(), 'tree', when='plural')}. It has ${h.pluralize(object.names.count(), 'file', when='never')} associated with this blob are
     ${h.liststyled(object.names, ', ', '<tt>', '</tt>') | n}: </p>
+    <% parent_ids = object.limited_parent_ids(100) %>
     <ul>
-    % for tree_id in object.parent_ids:
+    % for tree_id in parent_ids:
       <li><tt>${self.link_to_object(tree_id)}</tt></li>
     % endfor
+      % if parent_ids.count() > 100:
+      <li> And so on and so forth </li>
+      % endif
     </ul>
     </p>
 
   % elif object.type == 'tree':
-    <% repos = object.repositories %>
+    <% repos = object.limited_repositories(100) %>
     <p> Tree <tt>${self.link_to_object(object)}</tt> has been found in the following
     ${h.pluralize(repos.count(), 'repository', 'repositories', when='plural')}: </p>
     <ul>
     % for repo in repos:
       <li> ${self.link_to_view(repo, object)} </li>
     % endfor
+      % if repos.count() > 100:
+      <li> And so on and so forth </li>
+      % endif
     </ul>
     </p>
 
@@ -70,23 +83,31 @@
       <p> Additionally, this tree comes from the following  
       ${h.pluralize(object.commit_ids.count(), 'commit', when='plural')}: </p>
       <ul>
-      % for commit_id in object.commit_ids:
+      <% commit_ids = object.limited_commit_ids(100) %>
+      % for commit_id in commit_ids:
          <li> <tt>${self.link_to_object(commit_id)}</tt> </li>
       % endfor
+      % if commit_ids.count() > 100:
+      <li> And so on and so forth </li>
+      % endif
       </ul>
       </p>
     % else:
       <p> It is not the tree of any commit. </p>
     % endif
 
-    % if object.parent_ids.count():
+    <% parent_ids = object.limited_parent_ids(100) %>
+    % if parent_ids.count():
     <p> Finally, it is a subtree of the following 
-    ${h.pluralize(object.parent_ids.count(), 'tree', when='plural')}.  Its directory name is
+    ${h.pluralize(parent_ids.count(), 'tree', when='plural')}.  Its directory name is
     ${h.liststyled(object.names, ', ', '<tt>', '</tt>') | n}: </p>
     <ul>
-    % for tree_id in object.parent_ids:
+    % for tree_id in parent_ids:
       <li> <tt>${self.link_to_object(tree_id)}</tt> </li>
     % endfor
+    % if parent_ids.count() > 100:
+    <li> And so on and so forth </li>
+    % endif
     </ul>
     </p>
     % else:
@@ -94,13 +115,16 @@
     % endif
 
   % elif object.type == 'tag':
-    <% repos = object.repositories %>
+    <% repos = object.limited_repositories(100) %>
     <p> Tag <tt>${self.link_to_object(object)}</tt> has been found in the following
     ${h.pluralize(repos.count(), 'repository', 'repositories', when='plural')}: </p>
     <ul>
     % for repo in repos:
       <li> ${self.link_to_view(repo, object)} </li>
     % endfor
+    % if repos.count() > 100:
+    <li> And so on and so forth </li>
+    % endif
     </ul>
     </p>
 

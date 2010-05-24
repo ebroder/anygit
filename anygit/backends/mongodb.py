@@ -207,8 +207,9 @@ class TransformObject(son_manipulator.SONManipulator):
 class Map(object):
     def __init__(self, result, fun, count=None):
         self.result = result
-        self._iterator = (fun(i) for i in result)
+        self.fun = fun
         self._count = count
+        self._iterator = (fun(i) for i in result)
 
     def __iter__(self):
         return iter(self._iterator)
@@ -220,7 +221,10 @@ class Map(object):
 
     def next(self):
         return self._iterator.next()
-        
+
+    def limit(self, limit):
+        return Map(self.result.limit(limit), self.fun, self._count)
+
 
 class MongoDbModel(object):
     # Should provide these in subclasses
@@ -573,6 +577,9 @@ class GitObject(MongoDbModel, common.CommonGitObjectMixin):
     def repositories(self):
         return Repository.find_matching(self.repository_ids)
 
+    def limited_repositories(self, limit):
+        return self.repositories.limit(limit)
+
     def add_tag(self, tag_id):
         raise AbstractMethodError()
 
@@ -604,6 +611,9 @@ class Blob(GitObject, common.CommonBlobMixin):
     @property
     def parent_ids(self):
         return Map(self.parent_ids_with_names, lambda (id, name): id)
+
+    def limited_parent_ids(self, limit):
+        return self.parent_ids.limit(limit)
 
     @property
     def names(self):
@@ -653,6 +663,9 @@ class Tree(GitObject, common.CommonTreeMixin):
     def commit_ids(self):
         return Map(TreeCommit.get_all(self.id), lambda tc: tc.commit_id)
 
+    def limited_commit_ids(self, limit):
+        return self.commit_ids.limit(limit)
+
     @property
     def commits(self):
         return Commit.find_matching(self.commit_ids)
@@ -660,6 +673,9 @@ class Tree(GitObject, common.CommonTreeMixin):
     @property
     def parent_ids(self):
         return Map(self.parent_ids_with_names, lambda (id, name): id)
+
+    def limited_parent_ids(self, limit):
+        return self.parent_ids.limit(limit)
 
     @property
     def names(self):
