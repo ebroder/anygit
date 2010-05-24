@@ -52,8 +52,11 @@ MIT students, and they all swore they would not rest until his vision
 became a reality. </p>
 
 <p> The chief developer for the project is <a
-href="http://gregbrockman.com">Greg Brockman</a>. TODO: put other
-contributors here, but should get an ACK from them first. </p>
+href="http://gregbrockman.com">Greg Brockman</a>.  Other contributors
+include Alan Huang, <a
+href="http://www.comclub.org/~quentins/about">Quentin Smith</a>, <a
+href="http://web.mit.edu/davidben/www/">David Benjamin</a>, and <a
+href="http://web.mit.edu/price">Greg Price</a>. </p>
 
 <h2> What are the intended use cases? </h2>
 
@@ -63,7 +66,7 @@ ideas. </p>
 
 <h2> Where can I get the code for anygit? </h2>
 
-<p> The code for anygit is freely available (under the GPLv2 license) on
+<p> The code for anygit is freely available (under the AGPLv3+ license) on
 <a href="http://github.com/ebroder/anygit">GitHub</a>. </p>
 
 <h2> I have no idea what's going on here, how can I learn more about git? </h2>
@@ -73,5 +76,5 @@ ideas. </p>
 <ul>
 <li><a href="http://blog.nelhage.com/2010/01/git-in-pictures/">Git in pictures</a></li>
 <li><a href="http://eagain.net/articles/git-for-computer-scientists/">Git for computer scientists</a></li>
-<a href="http://marklodato.github.com/visual-git-guide/">Visual git guide</a>
+<li> <a href="http://marklodato.github.com/visual-git-guide/">Visual git guide</a> </li>
 </ul>
