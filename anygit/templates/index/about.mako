@@ -53,11 +53,11 @@ became a reality. </p>
 
 <p> The chief developer for the project is <a
 href="http://gregbrockman.com">Greg Brockman</a>.  Other contributors
-include <a
-href="http://web.mit.edu/davidben/www/">David Benjamin</a>, 
-<a href="http://web.mit.edu/lizdenys/www/">Liz Denys</a>, Alan Huang, <a
-href="http://web.mit.edu/price">Greg Price</a>, and <a
-href="http://www.comclub.org/~quentins/about">Quentin Smith</a>. </p>
+include Alan Huang, <a href="http://web.mit.edu/lizdenys/www/">Elizabeth
+Denys</a>, <a href="http://www.comclub.org/~quentins/about">Quentin
+Smith</a>, <a href="http://web.mit.edu/davidben/www/">David
+Benjamin</a>, <a href="http://nelhage.com">Nelson Elhage</a> and <a
+href="http://web.mit.edu/price">Greg Price</a>. </p>
 
 <h2> What are the intended use cases? </h2>
 
