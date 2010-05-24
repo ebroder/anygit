@@ -121,13 +121,21 @@ def get_view_url_for(repo, obj):
         if match:
             return handler(repo, obj, match)
     
-def pluralize(number, singular, plural=None):
+def pluralize(number, singular, plural=None, when='always'):
+    assert when in ['always', 'plural', 'never']
+
     if plural is None:
         plural = '%ss' % singular
     if number == 1:
-        return '1 %s' % singular
+        if when == 'always':
+            return '1 %s' % singular
+        else:
+            return singular
     else:
-        return '%d %s' % (number, plural)
+        if when in ['always', 'plural']:
+            return '%d %s' % (number, plural)
+        else:
+            return plural
 
 def liststyled(items, separator, style_left=None, style_right=None):
     if style_left is None:

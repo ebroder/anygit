@@ -1,4 +1,4 @@
-g<%inherit file="../layouts/application.mako"/>
+<%inherit file="../layouts/application.mako"/>
 
 <%
   import pylons
@@ -26,7 +26,7 @@ g<%inherit file="../layouts/application.mako"/>
   % if object.type == 'commit':
     <% repos = object.repositories %>
     <p> Commit <tt>${self.link_to_object(object)}</tt> appears in the following
-    ${h.pluralize(repos.count(), 'repository', 'repositories')}: </p>
+    ${h.pluralize(repos.count(), 'repository', 'repositories', when='plural')}: </p>
       <ul>
       % for repo in repos:
       <li> ${self.link_to_view(repo, object)} </li>
@@ -36,7 +36,7 @@ g<%inherit file="../layouts/application.mako"/>
   % elif object.type == 'blob':
     <% repos = object.repositories %>
     <p> Blob <tt>${self.link_to_object(object)}</tt> has been found in the following
-    ${h.pluralize(repos.count(), 'repository', 'repositories')}: </p>
+    ${h.pluralize(repos.count(), 'repository', 'repositories', when='plural')}: </p>
     <ul>
     % for repo in repos:
       <li> ${self.link_to_view(repo, object)} </li>
@@ -45,7 +45,7 @@ g<%inherit file="../layouts/application.mako"/>
     </p>
 
     <p> Also, this blob comes from the following 
-    ${h.pluralize(object.parent_ids.count(), 'tree')}. The ${h.pluralize(object.names.count(), 'file')} associated with this blob are
+    ${h.pluralize(object.parent_ids.count(), 'tree', when='plural')}. It has ${h.pluralize(object.names.count(), 'file', when='never')} associated with this blob are
     ${h.liststyled(object.names, ', ', '<tt>', '</tt>') | n}: </p>
     <ul>
     % for tree_id in object.parent_ids:
@@ -57,7 +57,7 @@ g<%inherit file="../layouts/application.mako"/>
   % elif object.type == 'tree':
     <% repos = object.repositories %>
     <p> Tree <tt>${self.link_to_object(object)}</tt> has been found in the following
-    ${h.pluralize(repos.count(), 'repository', 'repositories')}: </p>
+    ${h.pluralize(repos.count(), 'repository', 'repositories', when='plural')}: </p>
     <ul>
     % for repo in repos:
       <li> ${self.link_to_view(repo, object)} </li>
@@ -66,9 +66,9 @@ g<%inherit file="../layouts/application.mako"/>
     </p>
 
 
-    % if object.commit_ids:
+    % if object.commit_ids.count():
       <p> Additionally, this tree comes from the following  
-      ${h.pluralize(object.commit_ids.count(), 'commit')}: </p>
+      ${h.pluralize(object.commit_ids.count(), 'commit', when='plural')}: </p>
       <ul>
       % for commit_id in object.commit_ids:
          <li> <tt>${self.link_to_object(commit_id)}</tt> </li>
@@ -79,9 +79,9 @@ g<%inherit file="../layouts/application.mako"/>
       <p> It is not the tree of any commit. </p>
     % endif
 
-    % if object.parent_ids:
+    % if object.parent_ids.count():
     <p> Finally, it is a subtree of the following 
-    ${h.pluralize(object.parent_ids.count(), 'tree')}.  Its directory name is
+    ${h.pluralize(object.parent_ids.count(), 'tree', when='plural')}.  Its directory name is
     ${h.liststyled(object.names, ', ', '<tt>', '</tt>') | n}: </p>
     <ul>
     % for tree_id in object.parent_ids:
@@ -96,7 +96,7 @@ g<%inherit file="../layouts/application.mako"/>
   % elif object.type == 'tag':
     <% repos = object.repositories %>
     <p> Tag <tt>${self.link_to_object(object)}</tt> has been found in the following
-    ${h.pluralize(repos.count(), 'repository', 'repositories')}: </p>
+    ${h.pluralize(repos.count(), 'repository', 'repositories', when='plural')}: </p>
     <ul>
     % for repo in repos:
       <li> ${self.link_to_view(repo, object)} </li>
