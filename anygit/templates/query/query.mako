@@ -50,10 +50,25 @@
     </ul>
     </p>
 
-    <p> Also, this blob comes from the following 
-    ${h.pluralize(object.parent_ids.count(), 'tree', when='plural')}. It has ${h.pluralize(object.names.count(), 'file', when='never')} associated with this blob are
-    ${h.liststyled(object.names, ', ', '<tt>', '</tt>') | n}: </p>
     <% parent_ids = object.limited_parent_ids(100) %>
+    <p> Also, this blob comes from the following 
+    ${h.pluralize(parent_ids.count(), 'tree', when='plural')}. 
+
+    <% names = object.limited_names(100) %>
+    % if names.count() == 0:
+      <% assert object.dirty %>
+      We haven't gotten around to recording its file name just yet, but hopefully will
+      soon.  If you're feeling especially inquisitive, feel free to email
+      <a href="mailto:anygit@mit.edu">anygit@mit.edu</a> and ask what's up with
+      <tt>${object.id}</tt>.
+    % elif names.count() == 1:
+       Its file name is <tt>${names.next()}</tt>
+    % else:
+       It has had several file names over time, namely 
+          ${h.liststyled(names, ', ', '<tt>', '</tt>') | n}: </p>
+    % endif
+    </p>
+
     <ul>
     % for tree_id in parent_ids:
       <li><tt>${self.link_to_object(tree_id)}</tt></li>
@@ -99,8 +114,21 @@
     <% parent_ids = object.limited_parent_ids(100) %>
     % if parent_ids.count():
     <p> Finally, it is a subtree of the following 
-    ${h.pluralize(parent_ids.count(), 'tree', when='plural')}.  Its directory name is
-    ${h.liststyled(object.names, ', ', '<tt>', '</tt>') | n}: </p>
+    ${h.pluralize(parent_ids.count(), 'tree', when='plural')}.  
+
+    <% names = object.limited_names(100) %>
+    % if names.count() == 0:
+      <% assert object.dirty %>
+      We haven't gotten around to recording its directory name just yet, but hopefully will
+      soon.  If you're feeling especially inquisitive, feel free to email
+      <a href="mailto:anygit@mit.edu">anygit@mit.edu</a> and ask what's up with
+      <tt>${object.id}</tt>.
+    % elif names.count() == 1:
+       Its name as a directory is <tt>${names.next()}</tt>
+    % else:
+       It has been known by the following names:
+          ${h.liststyled(names, ', ', '<tt>', '</tt>') | n}: </p>
+    % endif
     <ul>
     % for tree_id in parent_ids:
       <li> <tt>${self.link_to_object(tree_id)}</tt> </li>
