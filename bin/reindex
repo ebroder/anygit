@@ -9,13 +9,19 @@ from anygit.client import fetch
 
 def main():
     parser = optparse.OptionParser('%prog [options] target')
-    parser.add_option('-p', '--packfile', dest='packfile', default=None, help='Use a packfile on the local system')
+    parser.add_option('-p', '--packfile', dest='packfile',
+                      default=None, help='Use a packfile on the local system')
+    parser.add_option('-f', '--force', dest='force', default=False,
+                      action='store_true', help='Force indexing to proceed, even if repo is marked as indexing')
     opts, args = parser.parse_args()
     if len(args) != 1:
         parser.print_help()
         return 1
     target  = args[0]
     r = models.Repository.get_or_create(url=target)
+    if r.indexing and opts.force:
+        r.indexing = False
+        r.save()
     models.flush()
     fetch.fetch_and_index(r, recover_mode=True, packfile=opts.packfile)
 
