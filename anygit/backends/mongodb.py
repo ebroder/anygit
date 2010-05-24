@@ -80,7 +80,7 @@ def flush():
             instance._pending_updates.clear()
         klass._save_list = klass._save_list[0:0]
         klass._cache.clear()
-        logger.debug('Saving %s complete.' % klass.__name__)
+    logger.debug('Commit complete.')
 
 def destroy_session():
     if connection is not None:
