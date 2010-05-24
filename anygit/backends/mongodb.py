@@ -249,6 +249,11 @@ class MongoDbModel(object):
                 continue
             setattr(self, k, v)
 
+    def _set(self, attr, value):
+        # TODO: I think that setattr on sets is a bit borked.  Maybe fix that.
+        setter = self._pending_updates.setdefault('$set', {})
+        setter[attr] = value
+
     def _add_all_to_set(self, set_name, values):
         # TODO: to get the *right* semantics, should have a committed updates
         # and an uncommitted updates.
@@ -740,16 +745,14 @@ class Repository(MongoDbModel, common.CommonRepositoryMixin):
     url = make_persistent_attribute('url')
     last_index = make_persistent_attribute('last_index', default=datetime.datetime(1970,1,1))
     indexing = make_persistent_attribute('indexing', default=False)
-    commit_ids = make_persistent_set()
+    remote_heads = make_persistent_set()
+    new_remote_heads = make_persistent_set()
     been_indexed = make_persistent_attribute('been_indexed', default=False)
     approved = make_persistent_attribute('approved', default=False)
     count = make_persistent_attribute('count', default=0)
 
     def __init__(self, *args, **kwargs):
         super(Repository, self).__init__(*args, **kwargs)
-        # TODO: persist this.
-        if not hasattr(self, 'remote_heads'):
-            self.remote_heads = {}
         # Hack to default this, thus persisting it.
         self.indexing
 
@@ -854,3 +857,10 @@ class Aggregate(MongoDbModel, common.CommonMixin):
                         (self.blob_count, self.tree_count, self.commit_count, self.tag_count))
         self.save()
         flush()
+
+    def set_new_remote_heads(self, new_remote_heads):
+        self._set('new_remote_heads', list(self.new_remote_heads))
+
+    def set_remote_heads(self, remote_heads):
+        self._set('remote_heads', list(self.new_remote_heads))
+

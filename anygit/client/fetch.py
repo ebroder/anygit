@@ -69,13 +69,15 @@ def fetch(repo, recover_mode=False, discover_only=False, get_count=False):
         # luxury we don't have.  Thus we only report the remote heads
         # that we have already seen from this repo.
         if not recover_mode and not get_count:
-            # Strictly speaking, this only needs to return strings.
             matching_commits = set(c.id for c in models.Commit.find_matching(refs_dict.itervalues(),
                                                                              dirty=False)
                                    if repo.id in c.repository_ids)
         else:
             matching_commits = set()
         remote_heads = set(v for k, v in refs_dict.iteritems() if '^{}' not in k)
+        # Don't clobber the existing remote heads just yet, in case we crash
+        repo.set_new_remote_heads(remote_heads)
+        repo.save()
         missing_commits = remote_heads - matching_commits
         # The commits we already have
         present_commits = remote_heads.intersection(matching_commits)
@@ -244,6 +246,10 @@ def fetch_and_index(repo, recover_mode=False):
         index_data(data_path, repo, is_path=True)
         repo.last_index = now
         repo.been_indexed = True
+        # Finally, clobber the old remote heads.
+        repo.set_remote_heads(repo.new_remote_heads)
+        repo.set_new_remote_heads([])
+        repo.save()
     except Exception, e:
         logger.error('Had a problem: %s' % traceback.format_exc())
     finally:
