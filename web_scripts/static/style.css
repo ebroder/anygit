@@ -1,18 +1,28 @@
 @charset "utf-8";
 @import url(http://fonts.googleapis.com/css?family=Cantarell);
+@import url(http://fonts.googleapis.com/css?family=Droid+Sans+Mono);
 
 body {
-    background: #888 url(gradient.png) repeat-x;
+    background: #888;
     text-align: left;
-    font: normal 13px/16px Cantarell, Tahoma, Helvetica, sans-serif;
-    color: #000000;
+    font: normal 10pt/12pt Cantarell, Tahoma, Helvetica, sans-serif;
+    color: #000;
     margin: 0px;
 }
 
+input[type="submit"] {
+    font: normal 10pt/12pt Cantarell, Tahoma, Helvetica, sans-serif;
+}
+
 a {
-    color: #000000;
+    color: #000;
     text-decoration: none;
     font-weight: bold;
+    text-shadow: rgba(30,30,70,.5) 1px 1px 1px;
+}
+
+b {
+    color: #000;
 }
 
 br {
@@ -21,6 +31,10 @@ br {
 
 p {
     margin-top: 0px;
+    margin-bottom: 0.5em;
+}
+
+h2 {
     margin-bottom: 0.5em;
 }
 
@@ -34,12 +48,11 @@ form {
     margin-bottom: 0.5em;
 }
 
-tt {
-    font: normal 12px "Courier New", Courier, monospace;
+tt, input[type="text"] {
+    font: normal 10pt/14pt "Droid Sans Mono", "Courier New", Courier, monospace;
 }
 
 ul#flash-messages, ul#error-messages {
-    font-size: larger;
     font-style: italic;
     margin: 0px;
     padding: 0px;
@@ -60,14 +73,19 @@ ul#error-messages {
 
 .header {
     font-size: 20pt;
-    color: #ffffff;
+    color: #fff;
     width: 100%;
-    background-color: #455c96;
+    background: #455c96 url(corner-u.png) repeat-x;
     padding: 1em 0em;
+    text-shadow: rgba(0,0,0,.3) 1pt 2pt 2pt;
+}
+
+.header a {
+    font-size: 20pt;
+    text-shadow: rgba(0,0,0,.3) 1pt 2pt 2pt;
 }
 
 .footer {
-    font-size: 10pt;
     padding: 0.5em 0em;
 }
 
@@ -75,13 +93,13 @@ ul#error-messages {
     width: 90%;
     margin: auto;
     padding: 1em;
-    background-color: #ebc76c;
+    background: #ebc76c url(corner-u.png) repeat-x;
 }
 
 .body {
     width: 90%;
     margin: auto;
-    background-color: #ffffff; 
+    background-color: #fff; 
     padding: 1em;
 }
 
@@ -91,9 +109,8 @@ ul#error-messages {
 }
 
 .info {
-    background: url(corner-u.png) repeat-x;
+    background: #1f2943 url(corner-u.png) repeat-x;
     color: #ffffff;
-    font-weight: bold;
     border: none !important;
     padding: 0px !important;
 }
@@ -102,11 +119,11 @@ ul#error-messages {
     background: url(corner-ul.png) no-repeat top left;
     margin: 0px;
     padding: 0.5em 1em;
-    font-size: 10pt;
+    font-size: 12pt;
 }
 
 .box {
-    background: #ffffff;
+    background: #fff;
     margin: 0.5em;
 }
 
@@ -119,6 +136,8 @@ ul#error-messages {
 
 #current b {
     font-size: 16pt;
+    font-weight: bold;
+    color: #000;
 }
 
 #current #repo { background: url(git-repo.png) no-repeat 95% 50%; }

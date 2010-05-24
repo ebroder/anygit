@@ -6,8 +6,8 @@
   <head>
     <title>anygit</title>
     <link href="${url('/static/style.css')}" rel="stylesheet" type="text/css" />
-    <link rel="SHORTCUT ICON" href="static/anygit.ico"/>
-    <link rel="icon" type="image/vnd.microsoft.icon" href="static/anygit.ico">
+    <link rel="SHORTCUT ICON" href="/static/anygit.ico"/>
+    <link rel="icon" type="image/vnd.microsoft.icon" href="/static/anygit.ico">
   </head>
     <body>
         <div class="header">
@@ -59,7 +59,7 @@
 </%def>
 
 <%def name="footer()">
-    brought to you by the <a>anyg.it team</a>
+    brought to you by the <a href="/about">anyg.it team</a>
 </%def>
 
 <%def name="form(url)">

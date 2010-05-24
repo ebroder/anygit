@@ -179,7 +179,7 @@
 % endfor
 </p>
 % else:
-  <p> You queried for git objects with prefix <b>${c.queried_id}</b>.  There were
+  <p> You queried for git objects with prefix <tt>${c.queried_id}</tt>.  There were
    <b>${c.count}</b> results.  Requested start (<b>${c.start}</b>) out of range.
 % endif
 

@@ -52,7 +52,7 @@
 	<div id="largest">
 		<ol>
 		% for r in models.Repository.get_by_highest_count(5):
-		<li> ${r.url}<br />with <b>${r.count}</b> git objects </li>
+		<li> <b>${r.url}</b><br />with <b>${r.count}</b> git objects </li>
 		% endfor
 		</ol>
 	</div>

@@ -7,14 +7,14 @@
 
 <h2> What is anygit? </h2>
 
-<p> <b>Anygit</b> is a project of the <a
+<p> <b>anygit</b> is a project of the <a
 href="http://sipb.mit.edu">Student Information Processing Board</a>,
 MIT's student computing group. </p>
 
 <h2> What does it do? </h2>
 
 <p> Think of <b>anygit</b> as a search engine for <a
-href"http://git-scm.com/">git</a> repositories.  We take the git
+href="http://git-scm.com/">git</a> repositories.  We take the git
 object model and turn it on its head. </p>
 
 <p> Here's how it works: you give us a SHA1 (or a SHA1 prefix) of a
