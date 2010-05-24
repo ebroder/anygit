@@ -53,10 +53,13 @@ def check_validity(repo):
     else:
         return True
 
-def fetch(repo, recover_mode=False, discover_only=False, get_count=False):
+def fetch(repo, recover_mode=False, discover_only=False, get_count=False, packfile=None):
     """Fetch data from a remote.  If recover_mode, will fetch all data
     as if we had indexed none of it.  Otherwise will do the right thing
     with the pack protocol.  If discover_only, will fetch no data."""
+    if packfile None:
+        return packfile
+
     logger.info('Fetching from %s' % repo)
     def determine_wants(refs_dict):
         # We don't want anything, just seeing if you exist.
@@ -222,7 +225,7 @@ def index_data(data, repo, is_path=False):
                                                                                  object.id))
     _process_data(repo, objects_iterator, progress)
 
-def fetch_and_index(repo, recover_mode=False):
+def fetch_and_index(repo, recover_mode=False, packfile=None):
     check_for_die_file()
     if isinstance(repo, basestring):
         repo = models.Repository.get(repo)
@@ -242,7 +245,7 @@ def fetch_and_index(repo, recover_mode=False):
         repo.indexing = True
         repo.save()
         models.flush()
-        data_path = fetch(repo, recover_mode=recover_mode)
+        data_path = fetch(repo, recover_mode=recover_mode, packfile=packfile)
         index_data(data_path, repo, is_path=True)
         repo.last_index = now
         repo.been_indexed = True
@@ -253,7 +256,7 @@ def fetch_and_index(repo, recover_mode=False):
     except Exception, e:
         logger.error('Had a problem: %s' % traceback.format_exc())
     finally:
-        if data_path:
+        if not packfile and data_path:
             try:
                 os.unlink(data_path)
             except IOError, e:

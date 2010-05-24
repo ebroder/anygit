@@ -9,6 +9,7 @@ from anygit.client import fetch
 
 def main():
     parser = optparse.OptionParser('%prog [options] target')
+    parser.add_option('-p', '--packfile', dest='packfile', default=None, help='Use a packfile on the local system')
     opts, args = parser.parse_args()
     if len(args) != 1:
         parser.print_help()
@@ -16,7 +17,7 @@ def main():
     target  = args[0]
     r = models.Repository.get_or_create(url=target)
     models.flush()
-    fetch.fetch_and_index(r, recover_mode=True)
+    fetch.fetch_and_index(r, recover_mode=True, packfile=opts.packfile)
 
 if __name__ == '__main__':
     sys.exit(main())
