@@ -685,6 +685,10 @@ class Tree(GitObject, common.CommonTreeMixin):
     def names(self):
         return Map(self.parent_ids_with_names, lambda (id, name): name)
 
+    def limited_names(self, limit):
+        s = set(name for (id, name) in self.parent_ids_with_names.limit(limit))
+        return Map(s, lambda x: x, count=len(s))
+
     @property
     def parents(self):
         return Tree.find_matching(self.parent_ids)
