@@ -100,7 +100,7 @@ class CommonRepositoryMixin(CommonMixin):
     @staticmethod
     def canonicalize(url):
         if url:
-            return url.lower().strip(' /')
+            return url.strip(' /')
         else:
             return url
 
