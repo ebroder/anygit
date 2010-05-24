@@ -7,7 +7,7 @@
 
 Request to have your repository indexed.
 
-<%self:form url="${url_for(controller='request', action='do_request')}">
-<p> <label for="url">Git URL:</label> ${webhelpers.html.tags.text('url')} </p>
-<p> ${webhelpers.html.tags.submit('submit', 'Index me please')} </p>
+<%self:form url="${url_for(controller='index', action='do_request')}">
+${webhelpers.html.tags.text('url')}
+${webhelpers.html.tags.submit('submit', 'Index')}
 </%self:form>

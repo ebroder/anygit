@@ -9,46 +9,55 @@
     aggregate = models.Aggregate.get()
 %>
 
-<p>Welcome to <b>anygit</b>, indexing the world's Git repositories
-one at a time. Currently
-<b>${aggregate.indexed_repository_count}</b> repos have been
-indexed and counting. We also have thus far indexed
-<b>${aggregate.blob_count}</b> blobs,
-<b>${aggregate.tree_count}</b> trees,
-<b>${aggregate.commit_count}</b> commits, and
-<b>${aggregate.tag_count}</b> tags.</p>
+<table><tr><td>
 
-<h2>Request indexing</h2>
+<div class="box" id="current">
+	<div class="info"><h2>Currently indexed:</h2></div>
+	<div id="repo"><b>${aggregate.indexed_repository_count}</b> repos</div>
+	<div id="blob"><b>${aggregate.blob_count}</b> blobs</div>
+	<div id="tree"><b>${aggregate.tree_count}</b> trees</div>
+	<div id="commit"><b>${aggregate.commit_count}</b> commits</div>
+	<div id="tag"><b>${aggregate.tag_count}</b> tags</div>
+</div>
 
-<p>
-Would you like your repository to be added to the index?
+</td><td>
 
-<%self:form url="${url_for(controller='index', action='do_request')}">
-<p> <label for="url">Git URL:</label>
-${webhelpers.html.tags.text('url')}
-${webhelpers.html.tags.submit('submit', 'Index me please')} </p>
-</%self:form> </p>
+<div class="box" id="request">
+	<div class="info"><h2>Request indexing:</h2></div>
+	<div id="add">
+		<p>Would you like your repository to be added to the index? Enter the Git URL here.</p>
+		<%self:form url="${url_for(controller='index', action='do_request')}">
+		${webhelpers.html.tags.text('url')}
+		${webhelpers.html.tags.submit('submit', 'Index')}
+		</%self:form>
+	</div>
+</div>
 
-<h2>Query</h2>
+<div class="box" id="query">
+	<div class="info"><h2>Object lookup:</h2></div>
+	<div id="sha">
+		<p>You can query for any Git object by going to <b>http://anyg.it/q/$sha1prefix</b>.</p>
+		<p>Alternatively, just enter your SHA1 prefix in the textfield:</p>
+		<form type="GET" action="${url_for(controller='query', action='query_with_string')}" />
+		<input type="text" name="query" value="" />
+		<input type="submit" value="Query" />
+		</form>
+	</div>
+</div>
 
-<p>
-You can query for any Git object by going to <b>http://anyg.it/q/$sha1prefix</b>
-</p>
+</td><td>
 
-<p>
-Alternatively, just enter your SHA1 prefix in the textfield:
-</p>
+<div class="box" id="stats">
+	<div class="info"><h2>Largest repositories:</h2></div>
+	<div id="largest">
+		<ol>
+		% for r in models.Repository.get_by_highest_count(5):
+		<li> ${r.url}<br />with <b>${r.count}</b> git objects </li>
+		% endfor
+		</ol>
+	</div>
+</div>
 
-<p>
-<form type="GET" action="${url_for(controller='query', action='query_with_string')}" />
-<input type="text" name="query" value="" />
-<input type="submit" value="Query" />
-</form>
-</p>
+</td></tr></table>
 
-<p> The most populous repositories are: </p>
-<ol>
-% for r in models.Repository.get_by_highest_count(10):
-<li> ${r.url} with ${r.count} git objects </li>
-% endfor
-</ol>
+<br />

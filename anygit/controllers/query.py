@@ -18,7 +18,7 @@ class QueryController(BaseController):
     def query(self, id):
         if not sha1_re.search(id):
             error_now = ('You should be querying for a SHA1.  These are written in '
-                         'hexidecimal (so they consist of a-f and 0-9).  Your query, '
+                         'hexadecimal (so they consist of a-f and 0-9).  Your query, '
                          '%s, is hence not a possible prefix.' % id)
         else:
             error_now = None

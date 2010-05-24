@@ -4,55 +4,62 @@
 
 <html>
   <head>
+    <title>anygit</title>
     <link href="${url('/static/style.css')}" rel="stylesheet" type="text/css" />
+    <link rel="SHORTCUT ICON" href="static/anygit.ico"/>
+    <link rel="icon" type="image/vnd.microsoft.icon" href="static/anygit.ico">
   </head>
     <body>
         <div class="header">
-            ${self.header()}
+          ${self.header()}
         </div>
 
-	<div class="flash">
-	  <%
-	     messages = h.flash.pop_messages()
-	     if kwargs['flash_now']:
-               messages.append(kwargs['flash_now'])
-          %>
-	  % if messages:
-	  <ul id="flash-messages">
-	    % for message in messages:
-	    <li>${message}</li>
-	    % endfor
-	  </ul>
-	  % endif
+        <%
+           messages = h.flash.pop_messages()
+           if kwargs['flash_now']:
+             messages.append(kwargs['flash_now'])
+        %>
+        % if messages:
+        <div class="flash">
+          <ul id="flash-messages">
+            % for message in messages:
+            <li>${message}</li>
+            % endfor
+          </ul>
+        </div>
+        % endif
 
-	  <%
-	     errors = h.error.pop_messages()
-	     if kwargs['error_now']:
-               errors.append(kwargs['error_now'])
-          %>
-	  % if errors:
-	  <ul id="error-messages">
-	    % for error in errors:
-	    <li>${error}</li>
-	    % endfor
-	  </ul>
-	  % endif
-	</div>
+        <%
+           errors = h.error.pop_messages()
+           if kwargs['error_now']:
+             errors.append(kwargs['error_now'])
+        %>
+        % if errors:
+        <div class="flash">
+          <ul id="error-messages">
+            % for error in errors:
+            <li>${error}</li>
+            % endfor
+          </ul>
+        </div>
+        % endif
 
-        ${self.body()}
+        <div class="body">
+          ${self.body()}
+        </div>
 
         <div class="footer">
-            ${self.footer()}
+          ${self.footer()}
         </div>
     </body>
 </html>
 
 <%def name="header()">
-    Welcome to anygit, indexing the world's git repositories since 2010.
+    Welcome to <a href="/">anygit</a>, indexing the world's git repositories one at a time.
 </%def>
 
 <%def name="footer()">
-    Brought to you by the anyg.it team
+    brought to you by the <a>anyg.it team</a>
 </%def>
 
 <%def name="form(url)">

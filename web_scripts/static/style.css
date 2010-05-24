@@ -1,20 +1,37 @@
 @charset "utf-8";
+@import url(http://fonts.googleapis.com/css?family=Cantarell);
 
 body {
-    background-color: #FFFFFF;
+    background: #888 url(gradient.png) repeat-x;
     text-align: left;
-    font: normal 12px/16px Tahoma, Helvetica, sans-serif;
+    font: normal 13px/16px Cantarell, Tahoma, Helvetica, sans-serif;
     color: #000000;
+    margin: 0px;
 }
 
-a:link, a:visited {
-    color: #000000;
-    text-decoration: underline;
-}
-
-a: hover {
+a {
     color: #000000;
     text-decoration: none;
+    font-weight: bold;
+}
+
+br {
+    clear: both;
+}
+
+p {
+    margin-top: 0px;
+    margin-bottom: 0.5em;
+}
+
+#stats ol {
+    margin-top: 0px;
+    margin-bottom: 0px;
+}
+
+form {
+    margin-top: 1em;
+    margin-bottom: 0.5em;
 }
 
 tt {
@@ -22,13 +39,12 @@ tt {
 }
 
 ul#flash-messages, ul#error-messages {
-    background-color: #FFFFCC;
     font-size: larger;
     font-style: italic;
-    margin-left: 40px;
-    padding: 4px;
+    margin: 0px;
+    padding: 0px;
     list-style: none;
-    }
+}
 
 ul#flash-messages {
     color: green;
@@ -37,3 +53,76 @@ ul#flash-messages {
 ul#error-messages {
     color: red;
 }
+
+.header, .footer {
+    text-align: center;
+}
+
+.header {
+    font-size: 20pt;
+    color: #ffffff;
+    width: 100%;
+    background-color: #455c96;
+    padding: 1em 0em;
+}
+
+.footer {
+    font-size: 10pt;
+    padding: 0.5em 0em;
+}
+
+.flash {
+    width: 90%;
+    margin: auto;
+    padding: 1em;
+    background-color: #ebc76c;
+}
+
+.body {
+    width: 90%;
+    margin: auto;
+    background-color: #ffffff; 
+    padding: 1em;
+}
+
+.body td {
+    width: 33%;
+    vertical-align: top;
+}
+
+.info {
+    background: url(corner-u.png) repeat-x;
+    color: #ffffff;
+    font-weight: bold;
+    border: none !important;
+    padding: 0px !important;
+}
+
+.info h2 {
+    background: url(corner-ul.png) no-repeat top left;
+    margin: 0px;
+    padding: 0.5em 1em;
+    font-size: 10pt;
+}
+
+.box {
+    background: #ffffff;
+    margin: 0.5em;
+}
+
+.box div {
+    text-align: left;
+    padding: 0.5em 5%;
+    border: 1px solid #1f2943;
+    border-top: none;
+}
+
+#current b {
+    font-size: 16pt;
+}
+
+#current #repo { background: url(git-repo.png) no-repeat 95% 50%; }
+#current #blob { background: url(git-blob.png) no-repeat 95% 50%; }
+#current #tree { background: url(git-tree.png) no-repeat 95% 50%; }
+#current #commit { background: url(git-commit.png) no-repeat 95% 50%; }
+#current #tag { background: url(git-tag.png) no-repeat 95% 50%; }
