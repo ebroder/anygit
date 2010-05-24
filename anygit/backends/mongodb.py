@@ -25,12 +25,11 @@ def create_schema():
     # Clear out the database
     for klass in collection_to_class.itervalues():
         klass._object_store.remove()
-        klass._object_store.drop_index()
 
     # Set up indexes
-    Repository._object_store.ensure_index({'url' : 1})
-    Repository._object_store.ensure_index({'approved' : 1})
-    Repository._object_store.ensure_index({'count' : 1})
+    Repository._object_store.ensure_index('url')
+    Repository._object_store.ensure_index('approved')
+    Repository._object_store.ensure_index('count')
 
 def init_model(connection):
     """Call me before using any of the tables or classes in the model."""
