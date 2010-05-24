@@ -205,15 +205,18 @@ class TransformObject(son_manipulator.SONManipulator):
                 return son
 
 class Map(object):
-    def __init__(self, result, fun):
+    def __init__(self, result, fun, count=None):
         self.result = result
         self._iterator = (fun(i) for i in result)
+        self._count = count
 
     def __iter__(self):
         return iter(self._iterator)
 
     def count(self):
-        return self.result.count()
+        if self._count is None:
+            self._count = self.result.count()
+        return self._count
 
     def next(self):
         return self._iterator.next()
@@ -533,7 +536,7 @@ class GitObject(MongoDbModel, common.CommonGitObjectMixin):
     has_type = True
     _save_list = []
     _cache = {}
-    repository_ids = make_persistent_set()
+    _repository_ids = make_persistent_set()
     dirty = make_persistent_attribute('dirty')
 
     @classmethod
@@ -558,6 +561,10 @@ class GitObject(MongoDbModel, common.CommonGitObjectMixin):
         self.dirty = value
 
     @property
+    def repository_ids(self):
+        return Map(self._repository_ids, lambda x: x, count=len(self._repository_ids))    
+
+    @property
     def repositories(self):
         return Repository.find_matching(self.repository_ids)
 
@@ -567,6 +574,10 @@ class GitObject(MongoDbModel, common.CommonGitObjectMixin):
     @property
     def tags(self):
         return Tag.find_matching(self.tag_ids)
+
+    def add_repository(self, repository_id, recursive=False):
+        repository_id = canonicalize_to_id(repository_id)
+        self._add_to_set('_repository_ids', repository_id)
 
 
 class Blob(GitObject, common.CommonBlobMixin):
@@ -587,11 +598,12 @@ class Blob(GitObject, common.CommonBlobMixin):
 
     @property
     def parent_ids(self):
-        return (id for (id, name) in self.parent_ids_with_names)
+        return Map(self.parent_ids_with_names, lambda (id, name): id)
 
     @property
     def names(self):
-        return set(name for (id, name) in self.parent_ids_with_names)
+        s = set(name for (id, name) in self.parent_ids_with_names)
+        return Map(s, lambda x: x, count=len(s))
 
     @property
     def parents(self):
@@ -599,11 +611,12 @@ class Blob(GitObject, common.CommonBlobMixin):
 
     @property
     def parents_with_names(self):
-        return set((Tree.get(id), name) for (id, name) in self.parent_ids_with_names)
+        return Map(self.parent_ids_with_names, lambda (id, name): (Tree.get(id), name))
 
-    def add_repository(self, repository_id, recursive=False):
-        repository_id = canonicalize_to_id(repository_id)
-        self._add_to_set('repository_ids', repository_id)
+    def add_tag(self, tag_id):
+        tag_id = canonicalize_to_id(tag_id)
+        b = BlobTag(key1=self.id, key2=tag_id)
+        b.save()
 
 
 ### Still working here.
@@ -641,11 +654,11 @@ class Tree(GitObject, common.CommonTreeMixin):
 
     @property
     def parent_ids(self):
-        return set(id for (id, name) in self.parent_ids_with_names)
+        return Map(self.parent_ids_with_names, lambda (id, name): id)
 
     @property
     def names(self):
-        return set(name for (id, name) in self.parent_ids_with_names)
+        return Map(self.parent_ids_with_names, lambda (id, name): name)
 
     @property
     def parents(self):
@@ -653,33 +666,28 @@ class Tree(GitObject, common.CommonTreeMixin):
 
     @property
     def parents_with_names(self):
-        return set((Tree.get(id), name) for (id, name) in self.parent_ids_with_names)
+        return Map(self.parent_ids_with_names, lambda (id, name): (Tree.get(id), name))
 
-    def add_repository(self, repository_id):
-        repository_id = canonicalize_to_id(repository_id)
-        self._add_to_set('repository_ids', repository_id)
-        self.save()
+    def add_tag(self, tag_id):
+        tag_id = canonicalize_to_id(tag_id)
+        b = TreeTag(key1=self.id, key2=tag_id)
+        b.save()
 
 
 class Tag(GitObject, common.CommonTagMixin):
     """Represents a git Tree.  Has an id (the sha1 that identifies this
     object)"""
 
-    def add_repository(self, repository_id):
-        repository_id = canonicalize_to_id(repository_id)
-        self._add_to_set('repository_ids', repository_id)
-        self.save()
+    def add_tag(self, tag_id):
+        tag_id = canonicalize_to_id(tag_id)
+        b = TagParentTag(key1=self.id, key2=tag_id)
+        b.save()
 
 
 class Commit(GitObject, common.CommonCommitMixin):
     """Represents a git Commit.  Has an id (the sha1 that identifies
     this object).  Also contains blobs, trees, and tags."""
     parent_ids = make_persistent_set()
-
-    def add_repository(self, repository_id, recursive=False):
-        repository_id = canonicalize_to_id(repository_id)
-        self._add_to_set('repository_ids', repository_id)
-        self.save()
 
     def add_parent(self, parent):
         self.add_parents([parent])
@@ -702,11 +710,16 @@ class Commit(GitObject, common.CommonCommitMixin):
 
     @property
     def submodule_of(self):
-        return set(id for (id, name) in self.submodule_of_with_names)
+        return Map(self.submodule_of_with_names, lambda (id, name): id)
 
     @property
     def parents(self):
         return Commit.find_matching(self.parent_ids)
+
+    def add_tag(self, tag_id):
+        tag_id = canonicalize_to_id(tag_id)
+        b = CommitTag(key1=self.id, key2=tag_id)
+        b.save()
 
 
 class Repository(MongoDbModel, common.CommonRepositoryMixin):

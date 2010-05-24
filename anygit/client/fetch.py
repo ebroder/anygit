@@ -160,7 +160,6 @@ def _process_object(repo, obj, progress, type_mapper):
         child_type = child._type
 
         indexed_object = models.Tag.get_from_cache_or_new(id=obj.id)
-        indexed_object.set_object(child_id)
 
         child = _objectify(id=child_id, type=child_type)
         child.add_tag(indexed_object)
@@ -183,8 +182,6 @@ def _process_data(repo, uncompressed_pack, progress):
     logger.info('Constructed object type map of size %s (%d bytes) for %s' %
                 (len(type_mapper), type_mapper.__sizeof__(), repo))
     models.flush()
-    # And now let's count up for repo again
-    refresh_count(repo)
 
     logger.info('Now processing objects for %s' % repo)
     for obj in uncompressed_pack.iterobjects():
