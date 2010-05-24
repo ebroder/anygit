@@ -23,6 +23,7 @@ def make_map():
     # map.connect('/{controller}/{action}')
     # map.connect('/{controller}/{action}/{id}')
 
+    map.connect('/', controller='index')
     map.connect('/q', controller='query', action='index')
     map.connect('/q/', controller='query', action='index')
     map.connect('/q/{id}', controller='query', action='query')
@@ -30,6 +31,6 @@ def make_map():
     map.connect('/{controller}', action='index')
     map.connect('/{controller}/', action='index')
     map.connect('/{controller}/{action}')
-    map.connect('/', controller='index')
+    map.connect('/{action}', controller='index')
 
     return map

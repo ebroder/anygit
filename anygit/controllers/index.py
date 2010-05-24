@@ -14,11 +14,14 @@ class IndexController(BaseController):
     def index(self):
         return render('index.mako', controller='index')
 
+    def about(self):
+        return render('about.mako', controller='index')
+
     def do_request(self):
         url = models.Repository.canonicalize(request.params.get('url'))
         if not url:
             helpers.error('You did not provide a URL')
-            redirect_to('index')
+            redirect_to('/')
 
         if models.Repository.exists(url=url):
             repo = models.Repository.get_by_attributes(url=url)
@@ -42,7 +45,7 @@ class IndexController(BaseController):
                     helpers.flash("Someone had requested %s before but it was down then. "
                                   "Looks like it's back up now.  We'll get right to it."
                                   % url)
-            redirect_to('index')
+            redirect_to('/')
 
         repo = models.Repository.create(url=url)
 
@@ -57,4 +60,5 @@ class IndexController(BaseController):
             repo.approved = True
             repo.save()
             helpers.flash('Successfully requested %s for indexing' % url)
-        redirect_to('index')
+        models.flush()
+        redirect_to('/')
