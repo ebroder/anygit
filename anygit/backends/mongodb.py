@@ -863,4 +863,3 @@ class Aggregate(MongoDbModel, common.CommonMixin):
 
     def set_remote_heads(self, remote_heads):
         self._set('remote_heads', list(self.new_remote_heads))
-
