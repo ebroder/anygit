@@ -677,11 +677,16 @@ class Tree(GitObject, common.CommonTreeMixin):
 class Tag(GitObject, common.CommonTagMixin):
     """Represents a git Tree.  Has an id (the sha1 that identifies this
     object)"""
+    object_id = make_persistent_attribute('object_id')
 
     def add_tag(self, tag_id):
         tag_id = canonicalize_to_id(tag_id)
         b = TagParentTag(key1=self.id, key2=tag_id)
         b.save()
+
+    def set_object_id(self, object_id):
+        object_id = canonicalize_to_id(object_id)
+        self.object_id = object_id
 
 
 class Commit(GitObject, common.CommonCommitMixin):

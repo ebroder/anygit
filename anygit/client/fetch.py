@@ -160,6 +160,7 @@ def _process_object(repo, obj, progress, type_mapper):
         child_type = child._type
 
         indexed_object = models.Tag.get_from_cache_or_new(id=obj.id)
+        indexed_object.set_object_id(child_id)
 
         child = _objectify(id=child_id, type=child_type)
         child.add_tag(indexed_object)
