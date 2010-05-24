@@ -9,7 +9,7 @@ from anygit.client import spider
 
 def main():
     action = {'github.com' : spider.github_com_spider,
-              'repo.orcz' : spider.repo_or_cz_spider,
+              'repo.or.cz' : spider.repo_or_cz_spider,
               'git.kernel.org' : spider.git_kernel_org_spider,
               'git.gnome.org' : spider.git_gnome_org_spider,
               'cgit.freedesktop.org' : spider.cgit_freedesktop_org_spider,

@@ -45,7 +45,7 @@ g<%inherit file="../layouts/application.mako"/>
     </p>
 
     <p> Also, this blob comes from the following 
-    ${h.pluralize(len(object.parent_ids), 'tree')}. The ${h.pluralize(len(object.names), 'file')} associated with this blob are
+    ${h.pluralize(object.parent_ids.count(), 'tree')}. The ${h.pluralize(object.names.count(), 'file')} associated with this blob are
     ${h.liststyled(object.names, ', ', '<tt>', '</tt>') | n}: </p>
     <ul>
     % for tree_id in object.parent_ids:
@@ -68,7 +68,7 @@ g<%inherit file="../layouts/application.mako"/>
 
     % if object.commit_ids:
       <p> Additionally, this tree comes from the following  
-      ${h.pluralize(len(object.commit_ids), 'commit')}: </p>
+      ${h.pluralize(object.commit_ids.count(), 'commit')}: </p>
       <ul>
       % for commit_id in object.commit_ids:
          <li> <tt>${self.link_to_object(commit_id)}</tt> </li>
@@ -81,7 +81,7 @@ g<%inherit file="../layouts/application.mako"/>
 
     % if object.parent_ids:
     <p> Finally, it is a subtree of the following 
-    ${h.pluralize(len(object.parent_ids), 'tree')}.  Its directory name is
+    ${h.pluralize(object.parent_ids.count(), 'tree')}.  Its directory name is
     ${h.liststyled(object.names, ', ', '<tt>', '</tt>') | n}: </p>
     <ul>
     % for tree_id in object.parent_ids:
@@ -134,34 +134,34 @@ g<%inherit file="../layouts/application.mako"/>
 
 % for object in c.objects:
 % if object.type == 'commit':
-<li> Commit <tt>${self.link_to_object(object)}</tt> comes from ${h.pluralize(len(object.repository_ids), 'repository', 'repositories')}. </li>
+<li> Commit <tt>${self.link_to_object(object)}</tt> comes from ${h.pluralize(object.repository_ids.count(), 'repository', 'repositories')}. </li>
 % elif object.type == 'blob':
 <li>
   Blob <tt>${self.link_to_object(object)}</tt> comes from
-  ${h.pluralize(len(object.parent_ids), 'tree')} and
-  ${h.pluralize(len(object.repository_ids), 'repository', 'repositories')}.
+  ${h.pluralize(object.parent_ids.count(), 'tree')} and
+  ${h.pluralize(object.repository_ids.count(), 'repository', 'repositories')}.
 </li>
 % elif object.type == 'tree':
 <li>
   Tree <tt>${self.link_to_object(object)}</tt> comes from 
   % if object.commit_ids and object.parent_ids:
-    ${h.pluralize(len(object.commit_ids), 'commit')},
-    ${h.pluralize(len(object.parent_ids), 'parent tree')}, and
-    ${h.pluralize(len(object.repository_ids), 'repository', 'repositories')}.
+    ${h.pluralize(object.commit_ids.count(), 'commit')},
+    ${h.pluralize(object.parent_ids.count(), 'parent tree')}, and
+    ${h.pluralize(object.repository_ids.count(), 'repository', 'repositories')}.
   % elif object.commit_ids:
-    ${h.pluralize(len(object.commit_ids), 'commit')} and
-    ${h.pluralize(len(object.repository_ids), 'repository', 'repositories')}.
+    ${h.pluralize(object.commit_ids.count(), 'commit')} and
+    ${h.pluralize(object.repository_ids.count(), 'repository', 'repositories')}.
   % elif object.parent_ids:
-    ${h.pluralize(len(object.parent_ids), 'parent tree')} and
-    ${h.pluralize(len(object.repository_ids), 'repository', 'repositories')}.
+    ${h.pluralize(object.parent_ids.count(), 'parent tree')} and
+    ${h.pluralize(object.repository_ids.count(), 'repository', 'repositories')}.
   % else:
-    ${h.pluralize(len(object.repository_ids), 'repository', 'repositories')}.
+    ${h.pluralize(object.repository_ids.count(), 'repository', 'repositories')}.
   % endif
 </li>
 % elif object.type == 'tag':
 <li>
   Tag <tt>${self.link_to_object(object)}</tt> comes from 
-  ${h.pluralize(len(object.repository_ids), 'repository', 'repositories')}.
+  ${h.pluralize(object.repository_ids.count(), 'repository', 'repositories')}.
 </li>
 % endif
 % endfor

@@ -39,6 +39,7 @@ def main():
                     print '%s is dead' % repo
                     repo.approved = False
                     repo.save()
+            models.flush()
     else:
         parser.print_help()
         return 3
