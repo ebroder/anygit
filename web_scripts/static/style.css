@@ -5,13 +5,13 @@
 body {
     background: #888;
     text-align: left;
-    font: normal 10pt/12pt Cantarell, Tahoma, Helvetica, sans-serif;
+    font: normal 12pt/14pt Cantarell, Tahoma, Helvetica, sans-serif;
     color: #000;
     margin: 0px;
 }
 
 input[type="submit"] {
-    font: normal 10pt/12pt Cantarell, Tahoma, Helvetica, sans-serif;
+    font: normal 12pt/14pt Cantarell, Tahoma, Helvetica, sans-serif;
 }
 
 a {
@@ -49,7 +49,7 @@ form {
 }
 
 tt, input[type="text"] {
-    font: normal 10pt/14pt "Droid Sans Mono", "Courier New", Courier, monospace;
+    font: normal 12pt/16pt "Droid Sans Mono", "Courier New", Courier, monospace;
 }
 
 ul#flash-messages, ul#error-messages {
