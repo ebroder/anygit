@@ -803,11 +803,11 @@ class Aggregate(MongoDbModel, common.CommonMixin):
         def __exit__(self, type, value, traceback):
             for name, value in self.klass._object_store.index_information().iteritems():
                 try:
-                    if len(value) == 1 and value[0][0] == self.field:
+                    if len(value) == 1 and isinstance(value, list) and value[0][0] == self.field:
                         self.klass._object_store.drop_index(name)
                         break
                 except TypeError:
-                    logger.error('Unexpected index information output %sf for' %
+                    logger.error('Unexpected index information output %s for' %
                                  (value, self.field, self.klass.__name__))
             else:
                 logger.error('No index on %s found for %s' % (self.field, self.klass.__name__))

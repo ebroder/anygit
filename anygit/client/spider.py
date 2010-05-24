@@ -85,6 +85,7 @@ def create(url):
     r = models.Repository.get_or_create(url=canonical_url)
     r.approved = 'spidered'
     r.save()
+    models.flush()
 
 ### Github methods
 
