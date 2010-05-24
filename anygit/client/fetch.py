@@ -57,7 +57,7 @@ def fetch(repo, recover_mode=False, discover_only=False, get_count=False, packfi
     """Fetch data from a remote.  If recover_mode, will fetch all data
     as if we had indexed none of it.  Otherwise will do the right thing
     with the pack protocol.  If discover_only, will fetch no data."""
-    if packfile None:
+    if not packfile:
         return packfile
 
     logger.info('Fetching from %s' % repo)
