@@ -788,6 +788,12 @@ class Repository(MongoDbModel, common.CommonRepositoryMixin):
     def count_objects(self):
         return GitObject._object_store.find({'repository_ids' : self.id}).count()
 
+    def set_new_remote_heads(self, new_remote_heads):
+        self._set('new_remote_heads', list(self.new_remote_heads))
+
+    def set_remote_heads(self, remote_heads):
+        self._set('remote_heads', list(self.new_remote_heads))
+
     def __str__(self):
         return 'Repository: %s' % self.url
 
@@ -857,9 +863,3 @@ class Aggregate(MongoDbModel, common.CommonMixin):
                         (self.blob_count, self.tree_count, self.commit_count, self.tag_count))
         self.save()
         flush()
-
-    def set_new_remote_heads(self, new_remote_heads):
-        self._set('new_remote_heads', list(self.new_remote_heads))
-
-    def set_remote_heads(self, remote_heads):
-        self._set('remote_heads', list(self.new_remote_heads))
