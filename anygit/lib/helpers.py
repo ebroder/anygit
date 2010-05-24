@@ -16,6 +16,7 @@ repo_or_cz_re = re.compile(r'^(?:git|http)://repo\.or\.cz/([^/]*)$')
 perl5_git_perl_org_re = re.compile(r'^(?:git|http)://perl5\.git\.perl\.org/([^/]*)$')
 git_gnome_org_re = re.compile(r'^(?:git|http)://git\.gnome\.org/([^/]*)$')
 cgit_freedesktop_org_re = re.compile(r'^(?:git|http)://anongit\.freedesktop\.org/(.*)$')
+gitorious_org_re = re.compile(r'^(?:git://|http://git\.)gitorious\.org/(.*)\.git$')
 
 def get_url(obj):
     if not isinstance(obj, basestring):
@@ -88,13 +89,34 @@ def git_gnome_org_handle(repo, obj, match):
 def cgit_freedesktop_org_handle(repo, obj, match):
     return _cgit_handle('http://cgit.freedesktop.org', repo, obj, match)
 
+def gitorious_org_handle(repo, obj, match):
+    values = {'path' : match.group(1),
+              'type' : obj.type,
+              'sha1' : obj.id}
+    if obj.type == 'commit':
+        return 'http://gitorious.org/%(path)s/%(type)s/%(sha1)s' % values
+    elif obj.type == 'tag':
+        # gitorious can't show tag objects it seems
+        return get_view_url_for(repo, obj.object)
+    elif obj.type == 'blob' or obj.type == 'tree':
+        parent_and_name = obj.get_path(repo)
+        if not parent_and_name:
+            return None
+        values['parent_id'] = parent_and_name[0].id
+        values['name'] = parent_and_name[1]
+        # for trees and blobs, the URL gets pluralized for some reason
+        return 'http://gitorious.org/%(path)s/%(type)ss/%(parent_id)s/%(name)s' % values
+    else:
+        return None
+
 def get_view_url_for(repo, obj):
     for regex, handler in [(github_com_re, github_com_handle),
                            (git_kernel_org_re, git_kernel_org_handle),
                            (repo_or_cz_re, repo_or_cz_handle),
                            (perl5_git_perl_org_re, perl5_git_perl_org_handle),
                            (git_gnome_org_re, git_gnome_org_handle),
-                           (cgit_freedesktop_org_re, cgit_freedesktop_org_handle)]:
+                           (cgit_freedesktop_org_re, cgit_freedesktop_org_handle),
+                           (gitorious_org_re, gitorious_org_handle)]:
         match = regex.search(repo.url)
         if match:
             return handler(repo, obj, match)
