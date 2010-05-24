@@ -688,6 +688,10 @@ class Tag(GitObject, common.CommonTagMixin):
         object_id = canonicalize_to_id(object_id)
         self.object_id = object_id
 
+    @property
+    def object(self):
+        return GitObject.get(id=self.object_id)
+
 
 class Commit(GitObject, common.CommonCommitMixin):
     """Represents a git Commit.  Has an id (the sha1 that identifies
