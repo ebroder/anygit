@@ -153,7 +153,7 @@ def make_persistent_attribute(name, default=None):
     backend_attr = '__%s' % hex(random.getrandbits(128))
     def _getter(self):
         if not hasattr(self, backend_attr):
-            setattr(self, backend_attr, default)
+            setattr(self, name, default)
         return getattr(self, backend_attr)
     def _setter(self, value):
         if hasattr(self, backend_attr) and value == getattr(self, backend_attr):
@@ -728,18 +728,21 @@ class Repository(MongoDbModel, common.CommonRepositoryMixin):
         # TODO: persist this.
         if not hasattr(self, 'remote_heads'):
             self.remote_heads = {}
+        # Hack to default this, thus persisting it.
+        self.indexing
 
     @classmethod
     def get_indexed_before(cls, date):
         """Get all repos indexed before the given date and not currently
         being indexed."""
+        # Hack: should be lazier about this.
         if date is not None:
             return cls._object_store.find({'last_index' : {'$lt' : date},
                                            'indexing' : False,
                                            'approved' : True})
         else:
-            return cls._object_store.find({'indexing' : False,
-                                           'approved' : True})
+            return cls._object_store.find({'approved' : True,
+                                           'indexing' : False})
 
     @classmethod
     def get_by_highest_count(cls, n=None, descending=True):
