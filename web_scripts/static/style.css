@@ -53,8 +53,8 @@ tt, input[type="text"] {
 }
 
 ul {
-    margin-top: 1em;
-    margin-bottom: 0.5em;
+    margin-top: 2em;
+    margin-bottom: 1.5em;
 }
 
 ul#flash-messages, ul#error-messages {
