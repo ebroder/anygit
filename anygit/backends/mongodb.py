@@ -13,7 +13,7 @@ from anygit.data import exceptions
 
 logger = logging.getLogger(__name__)
 
-max_transaction_window = 0
+max_transaction_window = 1000
 curr_transaction_window = 0
 connection = None
 save_classes = []
@@ -163,8 +163,11 @@ def make_persistent_attribute(name, default=None):
         if hasattr(self, backend_attr) and value == getattr(self, backend_attr):
             return
         self._changed = True
-        setting = self._pending_updates.setdefault('$set', {})
-        setting[name] = value
+        if self.mutable:
+            setting = self._pending_updates.setdefault('$set', {})
+            setting[name] = value
+        else:
+            self._pending_updates[name] = value
         setattr(self, backend_attr, value)
     return property(_getter, _setter)
 
@@ -260,8 +263,11 @@ class MongoDbModel(object):
 
     def _set(self, attr, value):
         # TODO: I think that setattr on sets is a bit borked.  Maybe fix that.
-        setter = self._pending_updates.setdefault('$set', {})
-        setter[attr] = value
+        if self.mutable:
+            setter = self._pending_updates.setdefault('$set', {})
+            setter[attr] = value
+        else:
+            self._pending_updates[attr] = value
 
     def _add_all_to_set(self, set_name, values):
         # TODO: to get the *right* semantics, should have a committed updates
@@ -401,11 +407,11 @@ class MongoDbModel(object):
 
     def get_updates(self):
         # Hack to add *something* for new insertions
-        if self.has_type:
-            self._pending_updates.setdefault('$set', {}).setdefault('type', self.type)
-        elif not self._pending_updates:
-            # Doing an upsert requires a non-empty object, so put in something small
-            self._pending_updates.setdefault('$set', {}).setdefault('d', 1)
+        if self.mutable:
+            if self.has_type:
+                self._pending_updates.setdefault('$set', {}).setdefault('type', self.type)
+        else:
+            self._pending_updates.setdefault('type', self.type)
         return self._pending_updates
 
     def mark_saved(self):
@@ -428,7 +434,7 @@ class MongoDbModel(object):
 
 
 class GitObjectAssociation(MongoDbModel, common.CommonMixin):
-    mutable = True
+    mutable = False
     has_type = False
     key1_name = None
     key2_name = None
