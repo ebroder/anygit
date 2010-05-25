@@ -59,7 +59,6 @@ def setup():
     init_model(connection)
 
 def flush():
-    logger.debug('Committing...')
     for klass in save_classes:
         if klass._save_list:
             logger.debug('Saving %d %s instances...' % (len(klass._save_list), klass.__name__))
@@ -84,7 +83,6 @@ def flush():
             instance._pending_updates.clear()
         klass._save_list = klass._save_list[0:0]
         klass._cache.clear()
-    logger.debug('Commit complete.')
 
 def destroy_session():
     if connection is not None:
@@ -98,7 +96,11 @@ def classify(string):
                'blob' : Blob,
                'tree' : Tree,
                'commit' : Commit,
-               'tag' : Tag}
+               'tag' : Tag,
+               'blobtree' : BlobTree,
+               'committree' : CommitTree,
+               'treecommit' : TreeCommit,
+               'treeparenttree' : TreeParentTree,}
     try:
         return mapping[string]
     except KeyError:
@@ -248,6 +250,7 @@ class MongoDbModel(object):
         self._pending_updates = {}
         self._init_from_dict(_raw_dict)
         self._pending_updates.clear()
+
         self._init_from_dict(kwargs)
         self.new = True
         self._pending_save = False
@@ -369,10 +372,10 @@ class MongoDbModel(object):
             if not (self.changed or self.new):
                 return True
             elif self.batched:
-                self._cache[self.id] = self
-                self._save_list.append(self)
                 if self._pending_save:
                     return
+                self._cache[self.id] = self
+                self._save_list.append(self)
                 self._pending_save = True
                 if curr_transaction_window >= max_transaction_window:
                     flush()
@@ -410,8 +413,11 @@ class MongoDbModel(object):
         if self.mutable:
             if self.has_type:
                 self._pending_updates.setdefault('$set', {}).setdefault('type', self.type)
+            else:
+                self._pending_updates.setdefault('$set', {}).setdefault('__d', 0)
         else:
-            self._pending_updates.setdefault('type', self.type)
+            if self.has_type:
+                self._pending_updates.setdefault('type', self.type)
         return self._pending_updates
 
     def mark_saved(self):
@@ -822,7 +828,7 @@ class Repository(MongoDbModel, common.CommonRepositoryMixin):
         self.count = value
 
     def count_objects(self):
-        return GitObject._object_store.find({'repository_ids' : self.id}).count()
+        return GitObject._object_store.find({'_repository_ids' : self.id}).count()
 
     def set_new_remote_heads(self, new_remote_heads):
         self.new_remote_heads = list(new_remote_heads)
