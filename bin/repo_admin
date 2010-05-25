@@ -11,7 +11,10 @@ from anygit.client import fetch
 
 def main():
     parser = optparse.OptionParser('%prog [options] {add,list,approve,clear}')
-    parser.add_option('-d', '--delay', dest='delay', type=int, default=1, help='Delay between remote requests')
+    parser.add_option('-d', '--delay', dest='delay', type=float,
+                      default=1.0, help='Delay between remote requests')
+    parser.add_option('-a', '--all', dest='all', action='store_true', default=False,
+                      help='Check even repos previously declared dead.')
     opts, args = parser.parse_args()
     if not len(args):
         parser.print_help()
@@ -29,7 +32,7 @@ def main():
             print '%s (approved: %s, last index: %s)' % (repo, repo.approved, repo.last_index)
     elif args[0] == 'approve':
         for repo in models.Repository.all():
-            if repo.approved not in (True, False):
+            if repo.approved not in (True, False) or (repo.approved == False and opts.all):
                 if fetch.check_validity(repo):
                     time.sleep(opts.delay)
                     repo.approved = True
