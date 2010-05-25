@@ -70,7 +70,7 @@ ideas. </p>
 
 <h2> Where can I get the code for anygit? </h2>
 
-<p> The code for anygit is freely available (under the AGPLv3+ license) on
+<p> The code for anygit is freely available (under the MIT license) on
 <a href="http://github.com/ebroder/anygit">GitHub</a>. </p>
 
 <h2> I have no idea what's going on here, how can I learn more about git? </h2>
