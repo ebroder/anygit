@@ -159,6 +159,7 @@
   % else:
     <% raise ValueError('Unrecognized type for %s' % object) %>
   % endif
+
 % else:
 
 <p> You queried for git objects with prefix <b>${c.queried_id}</b>. </p>
@@ -202,6 +203,13 @@
   <p> Showing results
    <b>${c.start}-${c.end}</b> of <b>${c.count}</b>.
   Pages: 
+% if c.page - 4 == 2:
+  <a href="${url_for(controller='query', action='query',
+  id=c.queried_id, page=i + 1)}">${1}</a>
+% else if c.page -4 > 2:
+  <a href="${url_for(controller='query', action='query',
+  id=c.queried_id, page=i + 1)}">${1}</a> ... 
+% endif
 % for i in range(c.page - 4, c.page + 3):
   % if i < 0:
     <% continue %>
@@ -214,6 +222,23 @@
   id=c.queried_id, page=i + 1)}">${i + 1}</a> 
   % endif
 % endfor
+% if c.count % 10 == 0:
+  % if c.page + 3 == ( c.count / 10 ):
+    <a href="${url_for(controller='query', action='query',
+    id=c.queried_id, page=i + 1)}">${(c.count / 10) + 1}</a>
+  % else if c.page +3 < ( c.count / 10 ):
+    ... <a href="${url_for(controller='query', action='query',
+    id=c.queried_id, page=i + 1)}">${(c.count / 10) + 1}</a>
+  % endif
+% else:
+  % if c.page + 3 == ( c.count / 10 ) + 1:
+    <a href="${url_for(controller='query', action='query',
+    id=c.queried_id, page=i + 1)}">${(c.count / 10) + 1}</a>
+  % else if c.page +3 < ( c.count / 10 ) + 1:
+    ... <a href="${url_for(controller='query', action='query',
+    id=c.queried_id, page=i + 1)}">${(c.count / 10) + 1}</a>
+  % endif
+% endif
 </p>
 % else:
   <br />
