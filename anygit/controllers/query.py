@@ -39,10 +39,7 @@ class QueryController(BaseController):
         c.count = count
         c.queried_id = id
         # Nonsensical if count == 0
-        if c.start > count:
-            c.out_of_range = True
-        else:
-            c.out_of_range = False
+        c.out_of_range = c.start > count
         return render('query.mako', controller='query', error_now=error_now)
 
     def query_with_string(self):

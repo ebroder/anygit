@@ -16,6 +16,8 @@ os.dup2(log.fileno(), 1)
 os.dup2(log.fileno(), 2)
 log.close()
 
+print '---- REQUEST FROM %s' % os.environ
+
 logging.config.fileConfig(conf)
 
 from flup.server.fcgi import WSGIServer

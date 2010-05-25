@@ -1,6 +1,6 @@
 @charset "utf-8";
 @import url(http://fonts.googleapis.com/css?family=Cantarell);
-@import url(http://fonts.googleapis.com/css?family=Droid+Sans+Mono);
+@import url(http://fonts.googleapis.com/css?family=Inconsolata);
 
 body {
     background: #888;
@@ -49,12 +49,12 @@ form {
 }
 
 tt, input[type="text"] {
-    font: normal 12pt/16pt "Droid Sans Mono", "Courier New", Courier, monospace;
+    font: normal 12pt/14pt Inconsolata, "Courier New", Courier, monospace;
 }
 
 ul.results li {
-    margin-top: 0.5em;
-    margin-bottom: 0.25em;
+    margin-top: 0.4em;
+    margin-bottom: 0.2em;
 }    
 
 ul#flash-messages, ul#error-messages {
@@ -68,7 +68,7 @@ ul#flash-messages {
     color: green;
 }
 
-ul#error-messages {
+ul#error-messages, i {
     color: red;
 }
 
@@ -78,6 +78,7 @@ ul#error-messages {
 
 .header {
     font-size: 20pt;
+    line-height: 24pt;
     color: #fff;
     width: 100%;
     background: #455c96 url(corner-u.png) repeat-x;
@@ -86,7 +87,6 @@ ul#error-messages {
 }
 
 .header a {
-    font-size: 20pt;
     text-shadow: rgba(0,0,0,.3) 1pt 2pt 2pt;
 }
 
@@ -147,8 +147,6 @@ ul#error-messages {
     color: #000;
 }
 
-#current #repo { background: url(git-repo.png) no-repeat 95% 50%; }
-#current #blob { background: url(git-blob.png) no-repeat 95% 50%; }
-#current #tree { background: url(git-tree.png) no-repeat 95% 50%; }
-#current #commit { background: url(git-commit.png) no-repeat 95% 50%; }
-#current #tag { background: url(git-tag.png) no-repeat 95% 50%; }
+#current div img {
+    float: right;
+}

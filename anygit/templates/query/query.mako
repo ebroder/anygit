@@ -31,7 +31,7 @@
 
   % if object.type == 'commit':
     <% repos = object.limited_repositories(100) %>
-    <p> Commit <tt>${self.link_to_object(object)}</tt> appears in the following
+    <p> Commit <tt>${self.show_object(object)}</tt> appears in the following
     ${h.pluralize(repos.count(), 'repository', 'repositories', when='plural')}: </p>
       <ul class="results">
       % for repo in repos:
@@ -44,7 +44,7 @@
 
   % elif object.type == 'blob':
     <% repos = object.limited_repositories(100) %>
-    <p> Blob <tt>${self.link_to_object(object)}</tt> has been found in the following
+    <p> Blob <tt>${self.show_object(object)}</tt> has been found in the following
     ${h.pluralize(repos.count(), 'repository', 'repositories', when='plural')}: </p>
     <ul class="results">
     % for repo in repos:
@@ -87,7 +87,7 @@
 
   % elif object.type == 'tree':
     <% repos = object.limited_repositories(100) %>
-    <p> Tree <tt>${self.link_to_object(object)}</tt> has been found in the following
+    <p> Tree <tt>${self.show_object(object)}</tt> has been found in the following
     ${h.pluralize(repos.count(), 'repository', 'repositories', when='plural')}: </p>
     <ul class="results">
     % for repo in repos:
@@ -150,7 +150,7 @@
 
   % elif object.type == 'tag':
     <% repos = object.limited_repositories(100) %>
-    <p> Tag <tt>${self.link_to_object(object)}</tt> has been found in the following
+    <p> Tag <tt>${self.show_object(object)}</tt> has been found in the following
     ${h.pluralize(repos.count(), 'repository', 'repositories', when='plural')}: </p>
     <ul class="results">
     % for repo in repos:
@@ -168,7 +168,7 @@
 
 % else:
 
-<p> You queried for git objects with prefix <b>${c.queried_id}</b>. </p>
+<p> You queried for git objects with prefix <tt>${c.queried_id}</tt>. </p>
 
 <ul class="results">
 % for object in c.objects:
@@ -208,48 +208,49 @@
 
 % if not c.out_of_range:
   <p> Showing results
-   <b>${c.start}-${c.end}</b> of <b>${c.count}</b>.<br /><br />
+   <b>${c.start}-${c.end}</b> of <b>${c.count}</b>.
+  </p>
   Pages: 
-% if c.page - 3 == 1:
-  <a href="${url_for(controller='query', action='query',
-  id=c.queried_id, page=1)}">${1}</a>
-% elif c.page - 3 > 1:
-  <a href="${url_for(controller='query', action='query',
-  id=c.queried_id, page=1)}">${1}</a> ... 
-% endif
-% for i in range(c.page - 3, c.page + 2):
-  % if i < 0:
-    <% continue %>
-  % elif c.limit * i >= c.count:
-    <% continue %>
-  % elif c.page == i + 1:
-    <b>${i + 1}</b>
+  % if c.page - 3 == 1:
+    <a href="${url_for(controller='query', action='query',
+    id=c.queried_id, page=1)}">${1}</a>
+  % elif c.page - 3 > 1:
+    <a href="${url_for(controller='query', action='query',
+    id=c.queried_id, page=1)}">${1}</a> ... 
+  % endif
+  % for i in range(c.page - 3, c.page + 2):
+    % if i < 0:
+      <% continue %>
+    % elif c.limit * i >= c.count:
+      <% continue %>
+    % elif c.page == i + 1:
+      <b>${i + 1}</b>
+    % else:
+    <a href="${url_for(controller='query', action='query',
+    id=c.queried_id, page=i + 1)}">${i + 1}</a> 
+    % endif
+  % endfor
+  % if c.count % c.limit == 0:
+    % if c.page + 3 == ( c.count / c.limit ):
+      <a href="${url_for(controller='query', action='query',
+      id=c.queried_id, page=(c.count / c.limit))}">${(c.count / c.limit)}</a>
+    % elif c.page + 3 < ( c.count / c.limit ):
+      ... <a href="${url_for(controller='query', action='query',
+      id=c.queried_id, page=(c.count / c.limit))}">${(c.count / c.limit)}</a>
+    % endif
   % else:
-  <a href="${url_for(controller='query', action='query',
-  id=c.queried_id, page=i + 1)}">${i + 1}</a> 
+    % if c.page + 3 == ( c.count / c.limit ) + 1:
+      <a href="${url_for(controller='query', action='query',
+      id=c.queried_id, page=(c.count / c.limit) + 1)}">${(c.count / c.limit) + 1}</a>
+    % elif c.page + 3 < ( c.count / c.limit ) + 1:
+      ... <a href="${url_for(controller='query', action='query',
+      id=c.queried_id, page=(c.count / c.limit) + 1)}">${(c.count / c.limit) + 1}</a>
+    % endif
   % endif
-% endfor
-% if c.count % c.limit == 0:
-  % if c.page + 3 == ( c.count / c.limit ):
-    <a href="${url_for(controller='query', action='query',
-    id=c.queried_id, page=(c.count / c.limit))}">${(c.count / c.limit)}</a>
-  % elif c.page + 3 < ( c.count / c.limit ):
-    ... <a href="${url_for(controller='query', action='query',
-    id=c.queried_id, page=(c.count / c.limit))}">${(c.count / c.limit)}</a>
-  % endif
-% else:
-  % if c.page + 3 == ( c.count / c.limit ) + 1:
-    <a href="${url_for(controller='query', action='query',
-    id=c.queried_id, page=(c.count / c.limit) + 1)}">${(c.count / c.limit) + 1}</a>
-  % elif c.page + 3 < ( c.count / c.limit ) + 1:
-    ... <a href="${url_for(controller='query', action='query',
-    id=c.queried_id, page=(c.count / c.limit) + 1)}">${(c.count / c.limit) + 1}</a>
-  % endif
-% endif
-</p>
 % else:
   <p> There were
    <b>${c.count}</b> results.  Requested start (<b>${c.start}</b>) out of range.
+  </p>
 % endif
 
 % endif

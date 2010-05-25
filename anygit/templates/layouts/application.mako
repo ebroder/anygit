@@ -69,7 +69,7 @@
 </html>
 
 <%def name="header()">
-    Welcome to <a href="/">anygit</a>, indexing the world's git repositories one at a time.
+    Welcome to <a href="/">anygit</a>, indexing the world's git repositories.
 </%def>
 
 <%def name="footer()">
@@ -80,6 +80,14 @@
 ${webhelpers.html.secure_form.secure_form(url)}
 ${caller.body()}
 ${webhelpers.html.tags.end_form()}
+</%def>
+
+<%def name="show_object(obj)">
+% if isinstance(obj, basestring):
+  ${obj}
+% else:
+  ${obj.id}
+% endif
 </%def>
 
 <%def name="link_to_object(obj)">
@@ -96,9 +104,8 @@ if not isinstance(obj, basestring):
 
 <%def name="link_to_view(repo, obj)">
 <% v = h.get_view_url_for(repo, obj) %>
-% if v:
-<a href="${v}">${repo.url}</a>
-% else:
 <b>${repo.url}</b>
+% if v:
+ <a href="${v}">(view)</a>
 % endif
 </%def>
