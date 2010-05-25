@@ -1,4 +1,4 @@
-1;2305;0c<%page cached="True"/>
+<%page cached="True"/>
 
 <%inherit file="../layouts/application.mako"/>
 <%
