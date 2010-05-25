@@ -161,6 +161,8 @@
   % endif
 % else:
 
+<p> You queried for git objects with prefix <b>${c.queried_id}</b>. </p>
+
 % for object in c.objects:
 % if object.type == 'commit':
 <li> Commit <tt>${self.link_to_object(object)}</tt> comes from ${h.pluralize(object.repository_ids.count(), 'repository', 'repositories')}. </li>
@@ -196,7 +198,8 @@
 % endfor
 
 % if not c.out_of_range:
-  <p> You queried for git objects with prefix <b>${c.queried_id}</b>.  Showing results
+  <br />
+  <p> Showing results
    <b>${c.start}-${c.end}</b> of <b>${c.count}</b>.
   Pages: 
 % for i in range(c.page - 4, c.page + 3):
@@ -213,7 +216,8 @@
 % endfor
 </p>
 % else:
-  <p> You queried for git objects with prefix <tt>${c.queried_id}</tt>.  There were
+  <br />
+  <p> There were
    <b>${c.count}</b> results.  Requested start (<b>${c.start}</b>) out of range.
 % endif
 
