@@ -33,8 +33,8 @@ def create_schema():
 
 def init_model(connection):
     """Call me before using any of the tables or classes in the model."""
-    raw_db = connection.anygit
-    db = connection.anygit
+    raw_db = getattr(connection, config.get('mongodb.db', 'anygit'))
+    db = getattr(connection, config.get('mongodb.db', 'anygit'))
     # Transform
     db.add_son_manipulator(TransformObject())
 
@@ -781,8 +781,8 @@ class Repository(MongoDbModel, common.CommonRepositoryMixin):
     url = make_persistent_attribute('url')
     last_index = make_persistent_attribute('last_index', default=datetime.datetime(1970,1,1))
     indexing = make_persistent_attribute('indexing', default=False)
-    remote_heads = make_persistent_set()
-    new_remote_heads = make_persistent_set()
+    remote_heads = make_persistent_attribute('remote_heads')
+    new_remote_heads = make_persistent_attribute('new_remote_heads')
     been_indexed = make_persistent_attribute('been_indexed', default=False)
     approved = make_persistent_attribute('approved', default=False)
     count = make_persistent_attribute('count', default=0)
@@ -825,10 +825,10 @@ class Repository(MongoDbModel, common.CommonRepositoryMixin):
         return GitObject._object_store.find({'repository_ids' : self.id}).count()
 
     def set_new_remote_heads(self, new_remote_heads):
-        self._set('new_remote_heads', list(self.new_remote_heads))
+        self.new_remote_heads = list(new_remote_heads)
 
     def set_remote_heads(self, remote_heads):
-        self._set('remote_heads', list(self.new_remote_heads))
+        self.remote_heads = list(remote_heads)
 
     def __str__(self):
         return 'Repository: %s' % self.url
