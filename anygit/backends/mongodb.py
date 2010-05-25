@@ -565,6 +565,8 @@ class GitObject(MongoDbModel, common.CommonGitObjectMixin):
     _cache = {}
     _repository_ids = make_persistent_set()
     dirty = make_persistent_attribute('dirty')
+    # Has been completely indexed in at least one repo
+    complete = make_persistent_attribute('complete')
 
     @classmethod
     def lookup_by_sha1(cls, sha1, partial=False, offset=0, limit=10):
@@ -585,6 +587,9 @@ class GitObject(MongoDbModel, common.CommonGitObjectMixin):
             return cls._object_store.find({'type' : cls.__name__.lower()})
 
     def mark_dirty(self, value):
+        # Just finished indexing, apparently.
+        if not value:
+            self.complete = True
         self.dirty = value
 
     @property
