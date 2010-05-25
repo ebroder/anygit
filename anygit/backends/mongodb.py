@@ -13,7 +13,7 @@ from anygit.data import exceptions
 
 logger = logging.getLogger(__name__)
 
-max_transaction_window = 1000
+max_transaction_window = 0
 curr_transaction_window = 0
 connection = None
 save_classes = []
@@ -67,9 +67,13 @@ def flush():
         for instance in klass._save_list:
             try:
                 updates = instance.get_updates()
-                klass._object_store.update({'_id' : instance.id},
-                                           updates,
-                                           upsert=True)
+                if klass.mutable:
+                    klass._object_store.update({'_id' : instance.id},
+                                               updates,
+                                               upsert=True)
+                else:
+                    updates.setdefault('_id', instance.id)
+                    klass._object_store.insert(updates)
             except:
                 logger.critical('Had some trouble saving %s' % instance)
                 raise
@@ -228,6 +232,7 @@ class Map(object):
 
 class MongoDbModel(object):
     # Should provide these in subclasses
+    mutable = True
     _cache = {}
     _save_list = None
     batched = True
@@ -423,6 +428,7 @@ class MongoDbModel(object):
 
 
 class GitObjectAssociation(MongoDbModel, common.CommonMixin):
+    mutable = True
     has_type = False
     key1_name = None
     key2_name = None
