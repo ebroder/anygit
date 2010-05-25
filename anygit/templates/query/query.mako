@@ -225,10 +225,10 @@
 % if c.count % 10 == 0:
   % if c.page + 4 == ( c.count / 10 ):
     <a href="${url_for(controller='query', action='query',
-    id=c.queried_id, page=(c.count / 10))}">${(c.count / 10)}</a>
+    id=c.queried_id, page=(c.count / 10))}">${(c.count / 10)}</a> test
   % elif c.page + 4 < ( c.count / 10 ):
     ... <a href="${url_for(controller='query', action='query',
-    id=c.queried_id, page=(c.count / 10))}">${(c.count / 10)}</a>
+    id=c.queried_id, page=(c.count / 10))}">${(c.count / 10)}</a> test
   % endif
 % else:
   % if c.page + 4 == ( c.count / 10 ) + 1:
