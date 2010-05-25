@@ -53,7 +53,8 @@ def check_validity(repo):
     else:
         return True
 
-def fetch(repo, recover_mode=False, discover_only=False, get_count=False, packfile=None, batch=None):
+def fetch(repo, recover_mode=False, discover_only=False,
+          get_count=False, packfile=None, batch=None):
     """Fetch data from a remote.  If recover_mode, will fetch all data
     as if we had indexed none of it.  Otherwise will do the right thing
     with the pack protocol.  If discover_only, will fetch no data."""
@@ -88,6 +89,8 @@ def fetch(repo, recover_mode=False, discover_only=False, get_count=False, packfi
         logger.debug('Requesting %d remote heads for %s.' % (len(missing_commits), repo))
         wants = list(missing_commits)
         if batch:
+            logger.info("I'd really like %d commits, but only requesting %d due to batch size" %
+                        (len(wants), batch))
             if len(wants) > batch:
                 state['has_extra'] = True
             wants = wants[0:batch]
@@ -110,7 +113,7 @@ def fetch(repo, recover_mode=False, discover_only=False, get_count=False, packfi
     def progress(progress):
         pass
 
-    graph_walker = object_store.ObjectStoreGraphWalker(repo.remote_heads,
+    graph_walker = object_store.ObjectStoreGraphWalker(repo.remote_heads or [],
                                                        get_parents)
     c = client.TCPGitClient(repo.host)
     c.fetch_pack(path=repo.path,
@@ -251,10 +254,13 @@ def fetch_and_index(repo, recover_mode=False, packfile=None, batch=None):
         repo.save()
         models.flush()
         while True:
-            data_path, state = fetch(repo, recover_mode=recover_mode, packfile=packfile)
+            data_path, state = fetch(repo, recover_mode=recover_mode,
+                                     packfile=packfile, batch=batch)
             index_data(data_path, repo, is_path=True)
             if not state.get('has_extra'):
                 break
+            else:
+                logger.info('Still more remote heads, running again...')
         repo.last_index = now
         repo.been_indexed = True
         # Finally, clobber the old remote heads.
