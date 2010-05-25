@@ -679,7 +679,7 @@ class Tree(GitObject, common.CommonTreeMixin):
 
     @property
     def parent_ids_with_names(self):
-        return Map(TreeParentTree.get_all(self.id), lambda tpt: (tpt.tree_id, tpt.name))
+        return Map(TreeParentTree.get_all(self.id), lambda tpt: (tpt.parent_tree_id, tpt.name))
 
     def add_commit(self, commit_id):
         commit_id = canonicalize_to_id(commit_id)
