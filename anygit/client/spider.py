@@ -112,7 +112,7 @@ def get_collaborators(user, repo):
 
     print user, repo, result
     if result:
-        users.update([c[0] for c in result['contributors']])
+        users.update([c[':login'] for c in result['contributors']])
     return users
 
 def dump_state(name):
@@ -123,6 +123,9 @@ def dump_state(name):
 
 def load_state(name):
     global users, pending_users
+    users = set()
+    pending_users = set()
+
     try:
         loaded = yaml.load(open(name))
         users = set(loaded['users'])

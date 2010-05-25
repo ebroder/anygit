@@ -19,11 +19,13 @@ def main():
     if len(args) != 1:
         parser.print_help()
         return 1
-    try:
+
+    if args[0] in action:
         action[args[0]]()
-    except KeyError:
+    else:
         parser.print_help()
         return 2
+
 
 if __name__ == '__main__':
     sys.exit(main())
