@@ -272,7 +272,7 @@ def fetch_and_index(repo, recover_mode=False, packfile=None, batch=None, unpack=
         repo.set_new_remote_heads([])
         repo.save()
     except Exception, e:
-        logger.error('Had a problem: %s' % traceback.format_exc())
+        logger.error('Had a problem indexing %s: %s' % (repo, traceback.format_exc()))
     finally:
         if not packfile and data_path:
             try:

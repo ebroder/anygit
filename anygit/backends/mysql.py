@@ -235,8 +235,11 @@ class Query(object):
                     if '$lt' in v:
                         items.append('`%s` < %s' % (k, self.domain._encode(v['$lt'])))
                     elif '$in' in v:
-                        items.append('`%s` IN (%s)' %
-                                     (k, ','.join(self.domain._encode(val) for val in v['$in'])))
+                        if v['$in']:
+                            items.append('`%s` IN (%s)' %
+                                         (k, ','.join(self.domain._encode(val) for val in v['$in'])))
+                        else:
+                            items.append('1 = 0')
                     else:
                         raise ValueError('Unrecognized query modifier %s' % v)
                 else:
@@ -926,7 +929,7 @@ class Repository(MongoDbModel, common.CommonRepositoryMixin):
 
     @property
     def clean_remote_heads(self):
-        return Commit.find_matching(self.remote_heads, dirty=False)
+        return Map(Commit.find_matching(self.remote_heads, dirty=False), lambda c: c.id)
 
     @property
     def remote_heads(self):
