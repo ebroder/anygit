@@ -33,7 +33,7 @@
     <% repos = object.limited_repositories(100) %>
     <p> Commit <tt>${self.link_to_object(object)}</tt> appears in the following
     ${h.pluralize(repos.count(), 'repository', 'repositories', when='plural')}: </p>
-      <ul>
+      <ul class="results">
       % for repo in repos:
       <li> ${self.link_to_view(repo, object)} </li>
       % endfor
@@ -46,7 +46,7 @@
     <% repos = object.limited_repositories(100) %>
     <p> Blob <tt>${self.link_to_object(object)}</tt> has been found in the following
     ${h.pluralize(repos.count(), 'repository', 'repositories', when='plural')}: </p>
-    <ul>
+    <ul class="results">
     % for repo in repos:
       <li> ${self.link_to_view(repo, object)} </li>
     % endfor
@@ -75,7 +75,7 @@
     % endif
     </p>
 
-    <ul>
+    <ul class="results">
     % for tree_id in parent_ids:
       <li><tt>${self.link_to_object(tree_id)}</tt></li>
     % endfor
@@ -89,7 +89,7 @@
     <% repos = object.limited_repositories(100) %>
     <p> Tree <tt>${self.link_to_object(object)}</tt> has been found in the following
     ${h.pluralize(repos.count(), 'repository', 'repositories', when='plural')}: </p>
-    <ul>
+    <ul class="results">
     % for repo in repos:
       <li> ${self.link_to_view(repo, object)} </li>
     % endfor
@@ -103,7 +103,7 @@
     % if object.commit_ids.count():
       <p> Additionally, this tree comes from the following  
       ${h.pluralize(object.commit_ids.count(), 'commit', when='plural')}: </p>
-      <ul>
+      <ul class="results">
       <% commit_ids = object.limited_commit_ids(100) %>
       % for commit_id in commit_ids:
          <li> <tt>${self.link_to_object(commit_id)}</tt> </li>
@@ -135,7 +135,7 @@
        It has been known by the following names:
           ${h.liststyled(names, ', ', '<tt>', '</tt>') | n}: </p>
     % endif
-    <ul>
+    <ul class="results">
     % for tree_id in parent_ids:
       <li> <tt>${self.link_to_object(tree_id)}</tt> </li>
     % endfor
@@ -152,7 +152,7 @@
     <% repos = object.limited_repositories(100) %>
     <p> Tag <tt>${self.link_to_object(object)}</tt> has been found in the following
     ${h.pluralize(repos.count(), 'repository', 'repositories', when='plural')}: </p>
-    <ul>
+    <ul class="results">
     % for repo in repos:
       <li> ${self.link_to_view(repo, object)} </li>
     % endfor
@@ -170,7 +170,7 @@
 
 <p> You queried for git objects with prefix <b>${c.queried_id}</b>. </p>
 
-<ul id="results">
+<ul class="results">
 % for object in c.objects:
 % if object.type == 'commit':
 <li> Commit <tt>${self.link_to_object(object)}</tt> comes from ${h.pluralize(object.repository_ids.count(), 'repository', 'repositories')}. </li>
