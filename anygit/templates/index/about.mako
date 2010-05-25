@@ -1,4 +1,4 @@
-<%page cached="True"/>
+1;2305;0c<%page cached="True"/>
 
 <%inherit file="../layouts/application.mako"/>
 <%
@@ -9,7 +9,9 @@
 
 <p> <b>anygit</b> is a project of the <a
 href="http://sipb.mit.edu">Student Information Processing Board</a>,
-MIT's student computing group. </p>
+MIT's student computing group.  We seek to index the world's git
+repositories and provide our indexed data to the general public.
+Visit <a href="http://anyg.it/">http://anyg.it</a> to run a query.</p>
 
 <h2> What does it do? </h2>
 
@@ -79,3 +81,7 @@ ideas. </p>
 <li><a href="http://eagain.net/articles/git-for-computer-scientists/">Git for computer scientists</a></li>
 <li> <a href="http://marklodato.github.com/visual-git-guide/">Visual git guide</a> </li>
 </ul>
+
+<h2> Cool!  I'd like to make some queries now. </h2>
+
+<p> Be our guest.  Make a query from our <a href="http://anyg.it/">homepage</a>.</p>
