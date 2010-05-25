@@ -52,6 +52,11 @@ tt, input[type="text"] {
     font: normal 12pt/16pt "Droid Sans Mono", "Courier New", Courier, monospace;
 }
 
+ul {
+    margin-top: 1em;
+    margin-bottom: 0.5em;
+}
+
 ul#flash-messages, ul#error-messages {
     font-style: italic;
     margin: 0px;

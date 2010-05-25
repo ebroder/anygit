@@ -161,29 +161,6 @@
   % endif
 % else:
 
-% if not c.out_of_range:
-  <p> You queried for git objects with prefix <b>${c.queried_id}</b>.  Showing results
-   <b>${c.start}-${c.end}</b> of <b>${c.count}</b>.
-  Pages: 
-% for i in range(c.page - 4, c.page + 3):
-  % if i < 0:
-    <% continue %>
-  % elif c.limit * i > c.count:
-    <% continue %>
-  % elif c.page == i + 1:
-    <b>${i + 1}</b>
-  % else:
-  <a href="${url_for(controller='query', action='query',
-  id=c.queried_id, page=i + 1)}">${i + 1}</a> 
-  % endif
-% endfor
-</p>
-% else:
-  <p> You queried for git objects with prefix <tt>${c.queried_id}</tt>.  There were
-   <b>${c.count}</b> results.  Requested start (<b>${c.start}</b>) out of range.
-% endif
-
-
 % for object in c.objects:
 % if object.type == 'commit':
 <li> Commit <tt>${self.link_to_object(object)}</tt> comes from ${h.pluralize(object.repository_ids.count(), 'repository', 'repositories')}. </li>
@@ -217,6 +194,28 @@
 </li>
 % endif
 % endfor
+
+% if not c.out_of_range:
+  <p> You queried for git objects with prefix <b>${c.queried_id}</b>.  Showing results
+   <b>${c.start}-${c.end}</b> of <b>${c.count}</b>.
+  Pages: 
+% for i in range(c.page - 4, c.page + 3):
+  % if i < 0:
+    <% continue %>
+  % elif c.limit * i > c.count:
+    <% continue %>
+  % elif c.page == i + 1:
+    <b>${i + 1}</b>
+  % else:
+  <a href="${url_for(controller='query', action='query',
+  id=c.queried_id, page=i + 1)}">${i + 1}</a> 
+  % endif
+% endfor
+</p>
+% else:
+  <p> You queried for git objects with prefix <tt>${c.queried_id}</tt>.  There were
+   <b>${c.count}</b> results.  Requested start (<b>${c.start}</b>) out of range.
+% endif
 
 % endif
 
