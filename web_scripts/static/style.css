@@ -52,7 +52,7 @@ tt, input[type="text"] {
     font: normal 12pt/16pt "Droid Sans Mono", "Courier New", Courier, monospace;
 }
 
-ul {
+ul li {
     margin-top: 2em;
     margin-bottom: 1.5em;
 }
