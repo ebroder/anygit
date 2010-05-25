@@ -270,6 +270,7 @@ def fetch_and_index(repo, recover_mode=False, packfile=None, batch=None):
                 break
             else:
                 logger.info('Still more remote heads, running again...')
+        repo.count = repo.count_objects()
         repo.last_index = now
         repo.been_indexed = True
         # Finally, clobber the old remote heads.
