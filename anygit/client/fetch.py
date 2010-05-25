@@ -35,10 +35,12 @@ class Checker(threading.Thread):
         self.repo = repo
 
     def run(self):
+        if not self.repo.url:
+            return
+
         try:
-            fetch(self.repo, discover_only=True)
+            fetch(self.repo, state={}, discover_only=True)
         except Exception, e:
-            logger.debug(traceback.format_exc(e))
             self.valid = False
         else:
             self.valid = True
@@ -53,14 +55,13 @@ def check_validity(repo):
     else:
         return True
 
-def fetch(repo, recover_mode=False, discover_only=False,
+def fetch(repo, state, recover_mode=False, discover_only=False,
           get_count=False, packfile=None, batch=None):
     """Fetch data from a remote.  If recover_mode, will fetch all data
     as if we had indexed none of it.  Otherwise will do the right thing
     with the pack protocol.  If discover_only, will fetch no data."""
-    state = {}
     if packfile:
-        return packfile, state
+        return packfile
 
     logger.info('Fetching from %s' % repo)
     def determine_wants(refs_dict):
@@ -80,6 +81,7 @@ def fetch(repo, recover_mode=False, discover_only=False,
         else:
             matching_commits = set()
         remote_heads = set(v for k, v in refs_dict.iteritems() if '^{}' not in k)
+        remote_heads -= state.setdefault('retrieved', set())
         # Don't clobber the existing remote heads just yet, in case we crash
         repo.set_new_remote_heads(remote_heads)
         repo.save()
@@ -93,7 +95,11 @@ def fetch(repo, recover_mode=False, discover_only=False,
                         (len(wants), batch))
             if len(wants) > batch:
                 state['has_extra'] = True
+            else:
+                state['has_extra'] = False
             wants = wants[0:batch]
+        l = state.setdefault('retrieved', set())
+        l.update(wants)
         return wants
 
     def get_parents(sha1):
@@ -115,6 +121,8 @@ def fetch(repo, recover_mode=False, discover_only=False,
 
     graph_walker = object_store.ObjectStoreGraphWalker(repo.remote_heads or [],
                                                        get_parents)
+    assert repo.host
+    assert repo.path
     c = client.TCPGitClient(repo.host)
     c.fetch_pack(path=repo.path,
                  determine_wants=determine_wants,
@@ -122,7 +130,7 @@ def fetch(repo, recover_mode=False, discover_only=False,
                  pack_data=pack_data,
                  progress=progress)
     destfile.close()
-    return destfile_name, state
+    return destfile_name
 
 def _objectify(id, type):
     mapper = {'blob' : models.Blob,
@@ -253,9 +261,10 @@ def fetch_and_index(repo, recover_mode=False, packfile=None, batch=None):
         repo.indexing = True
         repo.save()
         models.flush()
+        state = {}
         while True:
-            data_path, state = fetch(repo, recover_mode=recover_mode,
-                                     packfile=packfile, batch=batch)
+            data_path = fetch(repo, recover_mode=recover_mode,
+                              packfile=packfile, batch=batch, state=state)
             index_data(data_path, repo, is_path=True)
             if not state.get('has_extra'):
                 break
