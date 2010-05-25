@@ -10,7 +10,7 @@ from anygit import models
 from anygit.client import fetch
 
 def main():
-    parser = optparse.OptionParser('%prog [options] {add,list,approve}')
+    parser = optparse.OptionParser('%prog [options] {add,list,approve,clear}')
     parser.add_option('-d', '--delay', dest='delay', type=int, default=1, help='Delay between remote requests')
     opts, args = parser.parse_args()
     if not len(args):
@@ -40,6 +40,12 @@ def main():
                     repo.approved = False
                     repo.save()
             models.flush()
+    elif args[0] == 'clear':
+        # Should only be used in development
+        for repo in models.Repository.all():
+            repo.indexing = False
+            repo.save()
+        models.flush()
     else:
         parser.print_help()
         return 3
