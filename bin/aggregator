@@ -9,12 +9,13 @@ from anygit.client import fetch
 
 def main():
     parser = optparse.OptionParser('%prog [options] {refresh}')
+    parser.add_option('-a', '--all', action='store_true', default=False, help='Regenerate all aggregate statistics')
     opts, args = parser.parse_args()
     if not len(args):
         parser.print_help()
         return 1
     if args[0] == 'refresh':
-        fetch.refresh_all_counts()
+        fetch.refresh_all_counts(all=opts.all)
     else:
         parser.print_help()
         return 3
