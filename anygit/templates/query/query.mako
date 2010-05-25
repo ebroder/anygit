@@ -164,6 +164,7 @@
 
 <p> You queried for git objects with prefix <b>${c.queried_id}</b>. </p>
 
+<ul id="results">
 % for object in c.objects:
 % if object.type == 'commit':
 <li> Commit <tt>${self.link_to_object(object)}</tt> comes from ${h.pluralize(object.repository_ids.count(), 'repository', 'repositories')}. </li>
@@ -197,6 +198,7 @@
 </li>
 % endif
 % endfor
+</ul>
 
 % if not c.out_of_range:
   <br />
