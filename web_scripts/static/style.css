@@ -115,13 +115,15 @@ ul#error-messages {
 
 .info {
     background: #1f2943 url(corner-u.png) repeat-x;
+    border-top-left-radius: 20px;
+    -moz-border-radius-topleft: 20px;
+    -webkit-border-radius-top-left-radius: 20px;
     color: #ffffff;
     border: none !important;
     padding: 0px !important;
 }
 
 .info h2 {
-    background: url(corner-ul.png) no-repeat top left;
     margin: 0px;
     padding: 0.5em 1em;
     font-size: 12pt;
