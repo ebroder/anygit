@@ -5,4 +5,4 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from anygit import clisetup
 from anygit.client import fetch
-fetch.index_all(threads=4)
+fetch.index_all(threads=8)
