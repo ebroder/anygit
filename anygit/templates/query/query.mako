@@ -205,10 +205,10 @@
   Pages: 
 % if c.page - 4 == 2:
   <a href="${url_for(controller='query', action='query',
-  id=c.queried_id, page=i + 1)}">${1}</a>
+  id=c.queried_id, page=1)}">${1}</a>
 % elif c.page -4 > 2:
   <a href="${url_for(controller='query', action='query',
-  id=c.queried_id, page=i + 1)}">${1}</a> ... 
+  id=c.queried_id, page=1)}">${1}</a> ... 
 % endif
 % for i in range(c.page - 4, c.page + 3):
   % if i < 0:
@@ -225,18 +225,18 @@
 % if c.count % 10 == 0:
   % if c.page + 3 == ( c.count / 10 ):
     <a href="${url_for(controller='query', action='query',
-    id=c.queried_id, page=i + 1)}">${(c.count / 10) + 1}</a>
+    id=c.queried_id, page=(c.count / 10))}">${(c.count / 10)}</a>
   % elif c.page +3 < ( c.count / 10 ):
     ... <a href="${url_for(controller='query', action='query',
-    id=c.queried_id, page=i + 1)}">${(c.count / 10) + 1}</a>
+    id=c.queried_id, page=(c.count / 10))}">${(c.count / 10)}</a>
   % endif
 % else:
   % if c.page + 3 == ( c.count / 10 ) + 1:
     <a href="${url_for(controller='query', action='query',
-    id=c.queried_id, page=i + 1)}">${(c.count / 10) + 1}</a>
+    id=c.queried_id, page=(c.count / 10) + 1)}">${(c.count / 10) + 1}</a>
   % elif c.page +3 < ( c.count / 10 ) + 1:
     ... <a href="${url_for(controller='query', action='query',
-    id=c.queried_id, page=i + 1)}">${(c.count / 10) + 1}</a>
+    id=c.queried_id, page=(c.count / 10) + 1)}">${(c.count / 10) + 1}</a>
   % endif
 % endif
 </p>
