@@ -57,7 +57,7 @@ became a reality. </p>
 href="http://gregbrockman.com">Greg Brockman</a>.  Other contributors
 include <a href="http://web.mit.edu/davidben/www/">David
 Benjamin</a>, <a href="http://web.mit.edu/lizdenys/www/">Liz Denys</a>, 
-<a href="http://nelhage.com">Nelson Elhage</a>, Alan Huang, 
+<a href="http://nelhage.com">Nelson Elhage</a>, <b>Alan Huang</b>, 
 <a href="http://web.mit.edu/price">Greg Price</a>, and 
 <a href="http://www.comclub.org/~quentins/about">Quentin
 Smith</a>. </p>
