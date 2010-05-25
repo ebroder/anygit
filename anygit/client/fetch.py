@@ -120,7 +120,7 @@ def fetch(repo, state, recover_mode=False, discover_only=False,
     def progress(progress):
         pass
 
-    graph_walker = object_store.ObjectStoreGraphWalker(repo.remote_heads or [],
+    graph_walker = object_store.ObjectStoreGraphWalker(repo.clean_remote_heads,
                                                        get_parents)
     assert repo.host
     assert repo.path
