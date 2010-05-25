@@ -208,7 +208,7 @@
 
 % if not c.out_of_range:
   <p> Showing results
-   <b>${c.start}-${c.end}</b> of <b>${c.count}</b>.<br />
+   <b>${c.start}-${c.end}</b> of <b>${c.count}</b>.<br /><br />
   Pages: 
 % if c.page - 3 == 1:
   <a href="${url_for(controller='query', action='query',
