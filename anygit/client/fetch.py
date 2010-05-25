@@ -53,12 +53,13 @@ def check_validity(repo):
     else:
         return True
 
-def fetch(repo, recover_mode=False, discover_only=False, get_count=False, packfile=None):
+def fetch(repo, recover_mode=False, discover_only=False, get_count=False, packfile=None, batch=None):
     """Fetch data from a remote.  If recover_mode, will fetch all data
     as if we had indexed none of it.  Otherwise will do the right thing
     with the pack protocol.  If discover_only, will fetch no data."""
+    state = {}
     if packfile:
-        return packfile
+        return packfile, state
 
     logger.info('Fetching from %s' % repo)
     def determine_wants(refs_dict):
@@ -85,7 +86,12 @@ def fetch(repo, recover_mode=False, discover_only=False, get_count=False, packfi
         # The commits we already have
         present_commits = remote_heads.intersection(matching_commits)
         logger.debug('Requesting %d remote heads for %s.' % (len(missing_commits), repo))
-        return list(missing_commits)
+        wants = list(missing_commits)
+        if batch:
+            if len(wants) > batch:
+                state['has_extra'] = True
+            wants = wants[0:batch]
+        return wants
 
     def get_parents(sha1):
         try:
@@ -113,7 +119,7 @@ def fetch(repo, recover_mode=False, discover_only=False, get_count=False, packfi
                  pack_data=pack_data,
                  progress=progress)
     destfile.close()
-    return destfile_name
+    return destfile_name, state
 
 def _objectify(id, type):
     mapper = {'blob' : models.Blob,
@@ -195,12 +201,10 @@ def _process_data(repo, uncompressed_pack, progress):
                         obj=obj,
                         progress=progress,
                         type_mapper=type_mapper)
-    del type_mapper
 
     logger.info('Cleaning objects for %s' % repo)
-    type_mapper = {}
-    for obj in uncompressed_pack.iterobjects():
-        dirty = _objectify(id=obj.id, type=obj._type)
+    for id, type in type_mapper.iteritems():
+        dirty = _objectify(id=id, type=type)
         dirty.mark_dirty(False)
         dirty.save()
 
@@ -225,7 +229,7 @@ def index_data(data, repo, is_path=False):
                                                                                  object.id))
     _process_data(repo, objects_iterator, progress)
 
-def fetch_and_index(repo, recover_mode=False, packfile=None):
+def fetch_and_index(repo, recover_mode=False, packfile=None, batch=None):
     check_for_die_file()
     if isinstance(repo, basestring):
         repo = models.Repository.get(repo)
@@ -240,13 +244,17 @@ def fetch_and_index(repo, recover_mode=False, packfile=None):
     logger.info('Beginning to index: %s' % repo)
     now = datetime.datetime.now()
     data_path = None
+
     try:
         # Don't let other people try to index in parallel
         repo.indexing = True
         repo.save()
         models.flush()
-        data_path = fetch(repo, recover_mode=recover_mode, packfile=packfile)
-        index_data(data_path, repo, is_path=True)
+        while True:
+            data_path, state = fetch(repo, recover_mode=recover_mode, packfile=packfile)
+            index_data(data_path, repo, is_path=True)
+            if not state.get('has_extra'):
+                break
         repo.last_index = now
         repo.been_indexed = True
         # Finally, clobber the old remote heads.
