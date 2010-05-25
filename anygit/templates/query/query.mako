@@ -13,6 +13,12 @@
 % endfor
 </%def>
 
+<p>
+<form type="GET" action="${url_for(controller='query', action='query_with_string')}" />
+<input type="text" name="query" value="${c.queried_id}" />
+<input type="submit" value="Update query" />
+</form>
+</p>
 
 % if c.objects.count() == 0:
 <p> Sorry, no objects were found with <tt>${c.queried_id}</tt> as a prefix. </p>
@@ -201,7 +207,6 @@
 </ul>
 
 % if not c.out_of_range:
-  <br />
   <p> Showing results
    <b>${c.start}-${c.end}</b> of <b>${c.count}</b>.<br />
   Pages: 
@@ -243,16 +248,8 @@
 % endif
 </p>
 % else:
-  <br />
   <p> There were
    <b>${c.count}</b> results.  Requested start (<b>${c.start}</b>) out of range.
 % endif
 
 % endif
-
-<p>
-<form type="GET" action="${url_for(controller='query', action='query_with_string')}" />
-<input type="text" name="query" value="${c.queried_id}" />
-<input type="submit" value="Update query" />
-</form>
-</p>
