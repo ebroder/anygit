@@ -13,7 +13,13 @@
 % endfor
 </%def>
 
-${self.query_box(c.queried_id)}
+<p>
+<%self:form url="${url_for(controller='query', action='query_with_string')}">
+${webhelpers.html.tags.text('query', c.queried_id, title='SHA-1 hash to search for')}
+${webhelpers.html.tags.select('limit', c.limit, sorted(set([1, 5, 10, 20, 50, 100, c.limit])), title='Results per page')}
+${webhelpers.html.tags.submit('submit', 'Update')}
+</%self:form>
+</p>
 
 % if c.objects.count() == 0:
 <p> Sorry, no objects were found with <tt>${c.queried_id}</tt> as a prefix. </p>
