@@ -65,6 +65,12 @@
   })();
 
 </script>
+<script type="text/javascript">
+try{
+var pageTracker = _gat._getTracker("UA-16611725-1");
+pageTracker._trackPageview();
+} catch(err) {}
+</script>
     </body>
 </html>
 
