@@ -1,6 +1,7 @@
 @charset "utf-8";
 @import url(http://fonts.googleapis.com/css?family=Cantarell);
 @import url(http://fonts.googleapis.com/css?family=Inconsolata);
+@import url(http://fonts.googleapis.com/css?family=Reenie+Beanie);
 
 body {
     background: #888;
@@ -88,6 +89,15 @@ ul#error-messages, i {
 
 .header a {
     text-shadow: rgba(0,0,0,.3) 1pt 2pt 2pt;
+    position: relative;
+}
+
+.header a sup {
+	color: darkorange;
+	font: bold 10pt/10pt "Reenie Beanie";
+	position: absolute;
+	right: 1pt;
+	top: 18pt;
 }
 
 .footer {
