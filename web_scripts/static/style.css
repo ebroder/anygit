@@ -10,7 +10,7 @@ body {
     margin: 0px;
 }
 
-input[type="submit"] {
+input[type="submit"], select, option {
     font: normal 12pt/14pt Cantarell, Tahoma, Helvetica, sans-serif;
 }
 

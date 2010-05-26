@@ -36,7 +36,7 @@
 	<div id="add">
 		<p>Would you like your repository to be added to the index? Enter the Git URL here.</p>
 		<%self:form url="${url_for(controller='index', action='do_request')}">
-		${webhelpers.html.tags.text('url')}
+		${webhelpers.html.tags.text('url', title='URL of the repository')}
 		${webhelpers.html.tags.submit('submit', 'Index')}
 		</%self:form>
 	</div>
@@ -48,7 +48,7 @@
 		<p>You can query for any Git object by going to <b>http://anyg.it/q/$sha1prefix</b>.</p>
 		<p>Alternatively, just enter your SHA1 prefix in the textfield:</p>
 		<%self:form url="${url_for(controller='query', action='query_with_string')}">
-		${webhelpers.html.tags.text('query')}
+		${webhelpers.html.tags.text('query', title='SHA-1 hash to search for')}
 		${webhelpers.html.tags.submit('qsubmit', 'Query')}
 		</%self:form>
 	</div>

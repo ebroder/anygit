@@ -23,14 +23,12 @@ class QueryController(BaseController):
         else:
             error_now = None
         id = id.lower()
-
         try:
             page = max(int(request.params.get('page', 0)), 1)
         except ValueError:
             page = 1
-
         try:
-            limit = min(int(limit or request.params.get('limit', 10)), 50)
+            limit = min(int(limit or request.params.get('limit', '')), 100)
         except ValueError:
             limit = 10
         offset = (page - 1) * limit

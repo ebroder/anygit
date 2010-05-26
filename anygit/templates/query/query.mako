@@ -15,8 +15,8 @@
 
 <p>
 <%self:form url="${url_for(controller='query', action='query_with_string')}">
-${webhelpers.html.tags.text('query', c.queried_id)}
-${webhelpers.html.tags.select('limit', c.limit, sorted(set([4, 6, 10, 16, 25, 40, c.limit])))}
+${webhelpers.html.tags.text('query', c.queried_id, title='SHA-1 hash to search for')}
+${webhelpers.html.tags.select('limit', c.limit, sorted(set([1, 5, 10, 20, 50, 100, c.limit])), title='Results per page')}
 ${webhelpers.html.tags.submit('submit', 'Update')}
 </%self:form>
 </p>
