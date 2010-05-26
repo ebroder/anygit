@@ -234,6 +234,9 @@ class Map(object):
     def limit(self, limit):
         return Map(self.result.limit(limit), self.fun, self._count)
 
+    def skip(self, offset):
+        return Map(self.result.skip(offset), self.fun, self._count)
+
 
 class MongoDbModel(object):
     # Should provide these in subclasses

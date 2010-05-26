@@ -23,14 +23,22 @@ class QueryController(BaseController):
         else:
             error_now = None
         id = id.lower()
-        # Invalid params will throw an exception.
-        page = max(int(request.params.get('page', 0)), 1)
-        limit = min(int(limit or request.params.get('limit', 10)), 50)
+
+        try:
+            page = max(int(request.params.get('page', 0)), 1)
+        except ValueError:
+            page = 1
+
+        try:
+            limit = min(int(limit or request.params.get('limit', 10)), 50)
+        except ValueError:
+            limit = 10
         offset = (page - 1) * limit
         matching, count = models.GitObject.lookup_by_sha1(sha1=id,
                                                           partial=True,
-                                                          offset=offset,
                                                           limit=limit)
+        if count > 1:
+            matching.skip(offset)
         c.page = page
         c.start = offset + 1
         c.end = min(page * limit, count)
