@@ -704,6 +704,9 @@ class Tree(GitObject, common.CommonTreeMixin):
     def limited_parent_ids(self, limit):
         return self.parent_ids.limit(limit)
 
+    def limited_parent_ids_with_names(self, limit):
+        return self.parent_ids_with_names.limit(limit)
+
     @property
     def names(self):
         return Map(self.parent_ids_with_names, lambda (id, name): name)

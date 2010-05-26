@@ -15,7 +15,7 @@ class QueryController(BaseController):
     def index(self):
         return render('index.mako', controller='query')
 
-    def query(self, id):
+    def query(self, id, limit=''):
         if not sha1_re.search(id):
             error_now = ('You should be querying for a SHA1.  These are written in '
                          'hexadecimal (so they consist of a-f and 0-9).  Your query, '
@@ -25,7 +25,7 @@ class QueryController(BaseController):
         id = id.lower()
         # Invalid params will throw an exception.
         page = max(int(request.params.get('page', 0)), 1)
-        limit = min(int(request.params.get('limit', 10)), 50)
+        limit = min(int(limit or request.params.get('limit', 10)), 50)
         offset = (page - 1) * limit
         matching, count = models.GitObject.lookup_by_sha1(sha1=id,
                                                           partial=True,
@@ -44,5 +44,6 @@ class QueryController(BaseController):
 
     def query_with_string(self):
         query = request.params.get('query', '')
-        redirect_to(action='query', id=query)
+        limit = request.params.get('limit', '')
+        redirect_to(action='query', id=query, limit=limit)
     q = query

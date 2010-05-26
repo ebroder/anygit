@@ -14,10 +14,11 @@
 </%def>
 
 <p>
-<form type="GET" action="${url_for(controller='query', action='query_with_string')}" />
-<input type="text" name="query" value="${c.queried_id}" />
-<input type="submit" value="Update query" />
-</form>
+<%self:form url="${url_for(controller='query', action='query_with_string')}">
+${webhelpers.html.tags.text('query', c.queried_id)}
+${webhelpers.html.tags.select('limit', c.limit, sorted(set([4, 6, 10, 16, 25, 40, c.limit])))}
+${webhelpers.html.tags.submit('submit', 'Update')}
+</%self:form>
 </p>
 
 % if c.objects.count() == 0:
@@ -57,6 +58,7 @@
     </p>
 
     <% parent_ids = object.limited_parent_ids(100) %>
+    % if parent_ids.count():
     <p> Also, this blob comes from the following 
     ${h.pluralize(parent_ids.count(), 'tree', when='plural')}. 
 
@@ -71,9 +73,12 @@
        Its file name is <tt>${names.next()}</tt>
     % else:
        It has had several file names over time, namely 
-          ${h.liststyled(names, ', ', '<tt>', '</tt>') | n}: </p>
+          ${h.liststyled(names, ', ', '<tt>', '</tt>') | n}:
     % endif
     </p>
+    % else:
+    <p> It is not contained in any tree. </p>
+    % endif
 
     <ul class="results">
     % for tree_id in parent_ids:
@@ -117,10 +122,10 @@
       <p> It is not the tree of any commit. </p>
     % endif
 
-    <% parent_ids = object.limited_parent_ids(100) %>
+    <% parent_ids = object.limited_parent_ids_with_names(100) %>
     % if parent_ids.count():
     <p> Finally, it is a subtree of the following 
-    ${h.pluralize(parent_ids.count(), 'tree', when='plural')}.  
+    ${h.pluralize(parent_ids.count(), 'tree', when='plural')}.
 
     <% names = object.limited_names(100) %>
     % if names.count() == 0:
@@ -136,8 +141,12 @@
           ${h.liststyled(names, ', ', '<tt>', '</tt>') | n}: </p>
     % endif
     <ul class="results">
-    % for tree_id in parent_ids:
-      <li> <tt>${self.link_to_object(tree_id)}</tt> </li>
+    % for tree_id, name in parent_ids:
+      <li> <tt>${self.link_to_object(tree_id)}</tt>
+      % if names.count() > 1:
+        (<tt>${name}</tt>)
+      % endif
+      </li>
     % endfor
     % if parent_ids.count() > 100:
     <li> And so on and so forth </li>
@@ -212,10 +221,10 @@
   </p>
   Pages: 
   % if c.page - 3 == 1:
-    <a href="${url_for(controller='query', action='query',
+    <a href="${url_for(controller='query', action='query', limit=c.limit,
     id=c.queried_id, page=1)}">${1}</a>
   % elif c.page - 3 > 1:
-    <a href="${url_for(controller='query', action='query',
+    <a href="${url_for(controller='query', action='query', limit=c.limit,
     id=c.queried_id, page=1)}">${1}</a> ... 
   % endif
   % for i in range(c.page - 3, c.page + 2):
@@ -226,24 +235,24 @@
     % elif c.page == i + 1:
       <b>${i + 1}</b>
     % else:
-    <a href="${url_for(controller='query', action='query',
+    <a href="${url_for(controller='query', action='query', limit=c.limit,
     id=c.queried_id, page=i + 1)}">${i + 1}</a> 
     % endif
   % endfor
   % if c.count % c.limit == 0:
     % if c.page + 3 == ( c.count / c.limit ):
-      <a href="${url_for(controller='query', action='query',
+      <a href="${url_for(controller='query', action='query', limit=c.limit,
       id=c.queried_id, page=(c.count / c.limit))}">${(c.count / c.limit)}</a>
     % elif c.page + 3 < ( c.count / c.limit ):
-      ... <a href="${url_for(controller='query', action='query',
+      ... <a href="${url_for(controller='query', action='query', limit=c.limit,
       id=c.queried_id, page=(c.count / c.limit))}">${(c.count / c.limit)}</a>
     % endif
   % else:
     % if c.page + 3 == ( c.count / c.limit ) + 1:
-      <a href="${url_for(controller='query', action='query',
+      <a href="${url_for(controller='query', action='query', limit=c.limit,
       id=c.queried_id, page=(c.count / c.limit) + 1)}">${(c.count / c.limit) + 1}</a>
     % elif c.page + 3 < ( c.count / c.limit ) + 1:
-      ... <a href="${url_for(controller='query', action='query',
+      ... <a href="${url_for(controller='query', action='query', limit=c.limit,
       id=c.queried_id, page=(c.count / c.limit) + 1)}">${(c.count / c.limit) + 1}</a>
     % endif
   % endif
