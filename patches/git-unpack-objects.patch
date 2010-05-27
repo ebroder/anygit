@@ -1,0 +1,50 @@
+commit e15c90f826ebaefda9e10d0556c57f4eba2bfc59
+Author: Greg Brockman <gdb@mit.edu>
+Date:   Wed May 26 02:41:53 2010 -0400
+
+    Added a parser for the unpack objects format
+
+diff --git a/sha1_file.c b/sha1_file.c
+index d8e61a6..437ab8b 100644
+--- a/sha1_file.c
++++ b/sha1_file.c
+@@ -2312,6 +2312,39 @@ static int write_loose_object(const unsigned char *sha1, char *hdr, int hdrlen,
+ 		/* nothing */;
+ 	git_SHA1_Update(&c, hdr, hdrlen);
+ 
++	int walk;
++	for(walk = 0; hdr[walk] != ' '; walk++);
++	int objlen = atoi(hdr + walk + 1);
++
++	char marker;
++	int print;
++	if(hdr[0] == 't' && hdr[1] == 'r') { // tree
++	  marker = 't';
++	  print = 1;
++	} else if(hdr[0] == 'c') { // commit
++	  marker = 'c';
++	  print = 1;
++	} else if(hdr[0] == 'b') { // blob
++	  marker = 'b';
++	  print = 0;
++	} else if(hdr[0] == 't') { // tag
++	  marker = 'a';
++	  print = 1;
++	} else {
++	  printf("Huh?\n");
++	}
++	printf("%c %d%c", marker, objlen, '\0');
++	int i;
++	for(i = 0; i < 20; i++)
++	  printf("%c", sha1[i]);
++	if(print) {
++	  int i;
++	  for(i = 0; i < objlen; i++) {
++	    char byte = ((char*)buf)[i];
++	    printf("%c", byte);
++	  }
++	}
++
+ 	/* Then the data itself.. */
+ 	stream.next_in = (void *)buf;
+ 	stream.avail_in = len;

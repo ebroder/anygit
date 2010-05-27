@@ -15,6 +15,8 @@ def main():
                       action='store_true', help='Force indexing to proceed, even if repo is marked as indexing')
     parser.add_option('-b', '--batch', dest='batch', default=None,
                       type='int', help='How many branches to fetch at once (by default, all)')
+    parser.add_option('-u', '--unpack', dest='unpack', action='store_true', default=False,
+                      help='Unpack first, ask questions later.')
     opts, args = parser.parse_args()
     if len(args) != 1:
         parser.print_help()
@@ -25,7 +27,8 @@ def main():
         r.indexing = False
         r.save()
     models.flush()
-    fetch.fetch_and_index(r, recover_mode=True, packfile=opts.packfile, batch=opts.batch)
+    fetch.fetch_and_index(r, recover_mode=True, packfile=opts.packfile,
+                          batch=opts.batch, unpack=opts.unpack)
 
 if __name__ == '__main__':
     sys.exit(main())
