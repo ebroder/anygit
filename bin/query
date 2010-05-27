@@ -1,0 +1,38 @@
+#!/usr/bin/env python
+import optparse
+import os
+import sys
+import time
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
+from anygit import clisetup
+from anygit import models
+from anygit.client import fetch
+
+def main():
+    parser = optparse.OptionParser('%prog [options] {lookup} [args]')
+    parser.add_option('-l', '--limit', dest='limit', type=int,
+                      default=None, help='Limit results')
+    parser.add_option('-s', '--skip', dest='skip', type=int,
+                      default=None, help='Offset results')
+    opts, args = parser.parse_args()
+    if not len(args):
+        parser.print_help()
+        return 1
+    if args[0] == 'lookup':
+        if len(args) != 2:
+            parser.print_help()
+            return 2
+        matching, count = models.GitObject.lookup_by_sha1(sha1=args[1],
+                                                          partial=True,
+							  skip=opts.skip,
+                                                          limit=opts.limit)
+	print 'Found %d objects' % count
+	for match in matching:
+            print match
+    else:
+        parser.print_help()
+        return 3
+
+if __name__ == '__main__':
+    sys.exit(main())
