@@ -1,5 +1,5 @@
 import datetime
-from dulwich import client, object_store, pack
+from dulwich import client, object_store
 import logging
 import os
 import sys
@@ -8,6 +8,7 @@ import threading
 import traceback
 
 from anygit import models
+from anygit.client import git_parser
 from anygit.data import exceptions
 
 try:
@@ -56,7 +57,7 @@ def check_validity(repo):
         return True
 
 def fetch(repo, state, recover_mode=False, discover_only=False,
-          get_count=False, packfile=None, batch=None):
+          get_count=False, packfile=None, batch=None, unpack=False):
     """Fetch data from a remote.  If recover_mode, will fetch all data
     as if we had indexed none of it.  Otherwise will do the right thing
     with the pack protocol.  If discover_only, will fetch no data."""
@@ -139,16 +140,6 @@ def _objectify(id, type):
               'tag' : models.Tag}
     return mapper[type].get_from_cache_or_new(id=id)
 
-def _get_objects_iterator(data, is_path):
-    if is_path:
-        pack_data = pack.PackData.from_path(data)
-    else:
-        file = StringIO.StringIO(data)
-        length = len(data)
-        pack_data = pack.PackData.from_file(file, length)
-    uncompressed_pack = pack.Pack.from_objects(pack_data, None)
-    return uncompressed_pack
-
 def _process_object(repo, obj, progress, type_mapper):
     # obj is Dulwich object
     # indexed_object will be the MongoDBModel we create
@@ -178,8 +169,10 @@ def _process_object(repo, obj, progress, type_mapper):
         child.add_commit(indexed_object)
         child.save()
     elif obj._type == 'tag':
-        child, child_id = obj.get_object()
-        child_type = child._type
+        # In dulwich, first entry is the child object.  In our custom parser,
+        # it's None.
+        _, child_id = obj.get_object()
+        child_type = type_mapper[child_id]
 
         indexed_object = models.Tag.get_from_cache_or_new(id=obj.id)
         indexed_object.set_object_id(child_id)
@@ -219,7 +212,7 @@ def _process_data(repo, uncompressed_pack, progress):
         dirty.mark_dirty(False)
         dirty.save()
 
-def index_data(data, repo, is_path=False):
+def index_data(data, repo, is_path=False, unpack=False):
     if is_path:
         empty = not os.path.getsize(data)
     else:
@@ -228,7 +221,7 @@ def index_data(data, repo, is_path=False):
     if empty:
         logger.info('No data to index')
         return
-    objects_iterator = _get_objects_iterator(data, is_path)
+    objects_iterator = git_parser.ObjectsIterator(data, is_path, unpack)
     counter = {'count' : 0}
     def progress(object):
         counter['count'] += 1
@@ -240,7 +233,7 @@ def index_data(data, repo, is_path=False):
                                                                                  object.id))
     _process_data(repo, objects_iterator, progress)
 
-def fetch_and_index(repo, recover_mode=False, packfile=None, batch=None):
+def fetch_and_index(repo, recover_mode=False, packfile=None, batch=None, unpack=False):
     check_for_die_file()
     if isinstance(repo, basestring):
         repo = models.Repository.get(repo)
@@ -265,7 +258,7 @@ def fetch_and_index(repo, recover_mode=False, packfile=None, batch=None):
         while True:
             data_path = fetch(repo, recover_mode=recover_mode,
                               packfile=packfile, batch=batch, state=state)
-            index_data(data_path, repo, is_path=True)
+            index_data(data_path, repo, is_path=True, unpack=unpack)
             if not state.get('has_extra'):
                 break
             else:
@@ -273,6 +266,7 @@ def fetch_and_index(repo, recover_mode=False, packfile=None, batch=None):
         repo.count = repo.count_objects()
         repo.last_index = now
         repo.been_indexed = True
+        repo.approved = True
         # Finally, clobber the old remote heads.
         repo.set_remote_heads(repo.new_remote_heads)
         repo.set_new_remote_heads([])
