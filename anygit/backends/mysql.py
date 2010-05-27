@@ -12,10 +12,7 @@ from anygit.data import exceptions
 
 logger = logging.getLogger(__name__)
 
-max_transaction_window = 1000
-curr_transaction_window = 0
 connection = None
-save_classes = []
 collection_to_class = {}
 
 sha1_re = re.compile('^[a-f0-9]*')
@@ -25,13 +22,15 @@ sha1_re = re.compile('^[a-f0-9]*')
 def create_schema():
     print 'Huhh??'
 
+def flush():
+    pass
+
 def init_model(connection):
     """Call me before using any of the tables or classes in the model."""
     db = connection
 
     for obj in globals().itervalues():
         if type(obj) == type and issubclass(obj, MongoDbModel) and hasattr(obj, '__tablename__'):
-            save_classes.append(obj)
             tablename = getattr(obj, '__tablename__')
             obj._object_store = Domain(db, tablename)
             collection_to_class[obj._object_store] = obj
@@ -46,35 +45,6 @@ def setup():
                                  passwd=config.get('mysql.password'),
                                  db=config.get('mysql.db'))
     init_model(connection)
-
-_count = 0
-def flush():
-    global _count
-    _count += max_transaction_window
-    logger.debug('Committing...')
-    for klass in save_classes:
-        if klass._save_list:
-            logger.debug('Saving %d %s instances...' % (len(klass._save_list), klass.__name__))
-
-        for instance in klass._save_list:
-            try:
-                updates = instance.get_updates()
-                if not instance.new:
-                    klass._object_store.update(instance.id,
-                                               updates)
-                else:
-                    klass._object_store.insert(updates)
-            except:
-                logger.critical('Had some trouble saving %s' % instance)
-                raise
-            instance.mark_saved()
-            instance.new = False
-            instance._pending_save = False
-            instance._changed = False
-            instance._pending_updates.clear()
-        klass._save_list = klass._save_list[0:0]
-        klass._cache.clear()
-    logger.debug('Commit complete.')
 
 def destroy_session():
     if connection is not None:
@@ -131,18 +101,6 @@ def convert_iterable(target, dest):
     elif not isinstance(target, dest):
         return dest(target)
 
-def make_persistent_set():
-    # TODO: transparently diff and persist this.
-    backend_attr = '__%s' % hex(random.getrandbits(128))
-    def _getter(self):
-        if not hasattr(self, backend_attr):
-            setattr(self, backend_attr, set())
-        return getattr(self, backend_attr)
-    def _setter(self, value):
-        value = set(convert_iterable(entry, tuple) for entry in value)
-        setattr(self, backend_attr, value)
-    return property(_getter, _setter)
-
 def make_persistent_attribute(name, default=None, extractor=None):
     backend_attr = '__%s' % hex(random.getrandbits(128))
     def _getter(self):
@@ -167,28 +125,11 @@ def bool_extractor(b):
     else:
         return b
 
-def list_extractor(l):
-    # Yeah yeah, no sanitization.  What are you going to do about it?
-    return l.split(',')
-
 def datetime_extractor(d):
-    if isinstance(d, str) or isinstance(d, unicode):
+    if isinstance(d, basestring):
         return datetime.datetime.strptime(d, '%Y-%m-%d %H:%M:%S')
     else:
         return d
-
-def rename_dict_keys(dict, to_backend=True):
-    attrs = [('_id', 'id')]
-    if to_backend:
-        for backend, frontend in attrs:
-            if frontend in dict:
-                dict[backend] = dict[frontend]
-                del dict[frontend]
-    else:
-        for backend, frontend in attrs:
-            if backend in dict:
-                dict[frontend] = dict[backend]
-                del dict[backend]
 
 ## Classes
 
@@ -284,7 +225,7 @@ class Query(object):
                 return son
 
 
-class Domain(object):
+class Domain(object):    
     def __init__(self, connection, name):
         self.connection = connection
         self.name = name
@@ -323,9 +264,14 @@ class Domain(object):
             values.append(self._encode(v))
         return keys, values
 
-    def insert(self, attributes):
+    def insert(self, attributes, delayed=True):
         keys, values = self._prepare_params(None, attributes)
-        query = 'REPLACE DELAYED INTO `%s` (%s) VALUES (%s)' % (self.name,
+        if delayed:
+            delayed_statement = ' DELAYED'
+        else:
+            delayed_statement = ''
+        query = 'INSERT%s IGNORE INTO `%s` (%s) VALUES (%s)' % (delayed_statement,
+                                                                self.name,
                                                                 ', '.join(keys),
                                                                 ', '.join(values))
         self._execute(query)
@@ -334,7 +280,7 @@ class Domain(object):
         keys, values = self._prepare_params(None, attributes)
         # Mutable
         args = ', '.join('%s=%s' % (k, v) for k, v in zip(keys, values))
-        query = 'UPDATE `%s` SET %s WHERE `_id` = %s' % (self.name, args, self._encode(id))
+        query = 'UPDATE `%s` SET %s WHERE `id` = %s' % (self.name, args, self._encode(id))
         self._execute(query)
 
     def select(self, query_string):
@@ -346,7 +292,6 @@ class Domain(object):
         self._execute('DROP TABLE `%s`' % self.name)
 
     def _execute(self, query_string, cursor=None):
-        print query_string
         if not cursor:
             cursor = self.connection.cursor()
         return cursor.execute(query_string)
@@ -354,15 +299,11 @@ class Domain(object):
 
 class MongoDbModel(object):
     # Should provide these in subclasses
-    _cache = {}
-    _save_list = None
-    batched = True
+    cache = {}
+    mutable = True
     has_type = False
 
-    # Attributes: id, type
-
     def __init__(self, _raw_dict={}, **kwargs):
-        rename_dict_keys(kwargs, to_backend=True)
         self._pending_updates = {}
         self._init_from_dict(_raw_dict)
         self._pending_updates.clear()
@@ -372,7 +313,6 @@ class MongoDbModel(object):
         self._changed = False
 
     def _init_from_dict(self, dict):
-        rename_dict_keys(dict, to_backend=False)
         for k, v in dict.iteritems():
             if k == 'type':
                 assert v == self.type
@@ -419,7 +359,6 @@ class MongoDbModel(object):
 
     @classmethod
     def get_by_attributes(cls, **kwargs):
-        rename_dict_keys(kwargs, to_backend=True)
         results = cls.find(kwargs)
         count = results.count()
         if count == 1:
@@ -442,12 +381,11 @@ class MongoDbModel(object):
 
     @classmethod
     def exists(cls, **kwargs):
-        rename_dict_keys(kwargs, to_backend=True)
         return cls._object_store.find(kwargs).count() > 0
 
     def refresh(self):
         # TODO: do something.
-        # dict = self._raw_object_store.find_one({'_id' : self.id})
+        # dict = self._raw_object_store.find_one({'id' : self.id})
         # self._init_from_dict(dict)
         pass
 
@@ -467,20 +405,22 @@ class MongoDbModel(object):
         if not self._errors:
             if not (self.changed or self.new):
                 return True
-            elif self.batched:
-                if hasattr(self, 'id'):
-                    self._cache[self.id] = self
-                self._save_list.append(self)
-                if self._pending_save:
-                    return
-                self._pending_save = True
-                if curr_transaction_window >= max_transaction_window:
-                    flush()
-                    curr_transaction_window = 0
-                else:
-                    curr_transaction_window += 1
             else:
-                raise NotImplementedError('Non batched saves are not supported')
+                try:
+                    updates = self.get_updates()
+                    if not self.new:
+                        self._object_store.update(self.id,
+                                                  updates)
+                    elif self.mutable:
+                        self._object_store.insert(updates, delayed=False)
+                        self._object_store.update(self.id,
+                                                  updates)
+                    else:
+                        self._object_store.insert(updates)
+                except:
+                    logger.critical('Had some trouble saving %s' % self)
+                    raise
+                self.mark_saved()
             return True
         else:
             return False
@@ -490,11 +430,6 @@ class MongoDbModel(object):
 
     @classmethod
     def demongofy(cls, son):
-        if '_id' in son:
-            son['id'] = son['_id']
-            del son['_id']
-        elif 'id' not in son:
-            raise exceptions.ValidationError('Missing attribute id in %s' % son)
         instance = cls(_raw_dict=son)
         instance.new = False
         return instance
@@ -502,7 +437,7 @@ class MongoDbModel(object):
     @classmethod
     def find_matching(cls, ids, **kwargs):
         """Given a list of ids, find the matching objects"""
-        kwargs.update({'_id' : { '$in' : list(ids) }})
+        kwargs.update({'id' : { '$in' : list(ids) }})
         return cls._object_store.find(kwargs)
 
     def get_updates(self):
@@ -510,7 +445,7 @@ class MongoDbModel(object):
         if self.has_type:
             self._pending_updates.setdefault('type', self.type)
         if hasattr(self, 'id'):
-            self._pending_updates.setdefault('_id', self.id)
+            self._pending_updates.setdefault('id', self.id)
         return self._pending_updates
 
     def mark_saved(self):
@@ -533,6 +468,7 @@ class MongoDbModel(object):
 
 
 class GitObjectAssociation(MongoDbModel, common.CommonMixin):
+    mutable = False
     has_type = False
     key1_name = None
     key2_name = None
@@ -681,7 +617,6 @@ class GitObject(MongoDbModel, common.CommonGitObjectMixin):
     has_type = True
     _save_list = []
     _cache = {}
-    _repository_ids = make_persistent_set()
     dirty = make_persistent_attribute('dirty')
 
     @classmethod
@@ -689,9 +624,9 @@ class GitObject(MongoDbModel, common.CommonGitObjectMixin):
         # TODO: might want to disable lookup for dirty objects, or something
         if partial:
             safe_sha1 = '^%s' % re.escape(sha1)
-            results = cls._object_store.find({'_id' : re.compile(safe_sha1)})
+            results = cls._object_store.find({'id' : re.compile(safe_sha1)})
         else:
-            results = cls._object_store.find({'_id' : sha1})
+            results = cls._object_store.find({'id' : sha1})
         count = results.count()
         return results.skip(offset).limit(limit), count
 
@@ -859,7 +794,10 @@ class Tag(GitObject, common.CommonTagMixin):
 class Commit(GitObject, common.CommonCommitMixin):
     """Represents a git Commit.  Has an id (the sha1 that identifies
     this object).  Also contains blobs, trees, and tags."""
-    parent_ids = make_persistent_set()
+
+    @property
+    def parent_ids(self):
+        return Map(CommitParentCommit.get_all(self.id), lambda cpc: cpc.parent_commit_id)
 
     def add_parent(self, parent):
         self.add_parents([parent])
@@ -969,7 +907,7 @@ class Repository(MongoDbModel, common.CommonRepositoryMixin):
         self.count = value
 
     def count_objects(self):
-        return GitObject._object_store.find({'repository_ids' : self.id}).count()
+        return GitObjectRepository._object_store.find({'repository_id' : self.id}).count()
 
     # TODO: use this
     # def set_new_remote_heads(self, new_remote_heads):
