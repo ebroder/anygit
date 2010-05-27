@@ -30,7 +30,7 @@ def init_model(connection):
     db = connection
 
     for obj in globals().itervalues():
-        if type(obj) == type and issubclass(obj, MongoDbModel) and hasattr(obj, '__tablename__'):
+        if type(obj) == type and issubclass(obj, MysqlModel) and hasattr(obj, '__tablename__'):
             tablename = getattr(obj, '__tablename__')
             obj._object_store = Domain(db, tablename)
             collection_to_class[obj._object_store] = obj
@@ -47,8 +47,8 @@ def setup():
     init_model(connection)
 
 def destroy_session():
-    if connection is not None:
-        connection.disconnect()
+    global connection
+    connection = None
 
 ## Internal functions
 
@@ -65,7 +65,7 @@ def classify(string):
         raise ValueError('No matching class found for %s' % string)
 
 def canonicalize_to_id(db_object):
-    if isinstance(db_object, MongoDbModel):
+    if isinstance(db_object, MysqlModel):
         return db_object.id
     elif isinstance(db_object, basestring):
         return db_object
@@ -163,9 +163,14 @@ class Map(object):
     def limit(self, limit):
         return Map(self.result.limit(limit), self.fun, self._count)
 
+    def skip(self, skip):
+        return Map(self.result.skip(skip), self.fun, self._count)
+
 
 class Query(object):
     def __init__(self, domain, query):
+        self._limit = None
+        self._skip = None
         self.domain = domain
         if isinstance(query, dict):
             items = []
@@ -187,7 +192,12 @@ class Query(object):
                     items.append('`%s` = %s' % (k, self.domain._encode(v)))
             query = ' and '.join(items)
         self.query = query
-        self._iterator = iter(self.domain.select(self._get_select()))
+        self._iterator = None
+
+    def _get_iterator(self):
+        if not self._iterator:
+            self._iterator = iter(self.domain.select(self._get_select()))
+        return self._iterator
 
     def _get_select(self):
         # TODO: select a subset of attributes
@@ -195,7 +205,7 @@ class Query(object):
             full_query = 'select * from `%s` where %s' % (self.domain.name, self.query)
         else:
             full_query = 'select * from `%s`' % self.domain.name
-        return full_query
+        return full_query + self._get_limit()
 
     def _get_count(self):
         if self.query:
@@ -204,14 +214,33 @@ class Query(object):
             full_query = 'select count(*) from `%s`' % self.domain.name
         return full_query
 
+    def _get_limit(self):
+        clause = []
+        if self._limit is not None:
+            clause.append('LIMIT %d' % self._limit)
+        if self._skip is not None:
+            clause.append('OFFSET %d' % self._skip)
+        if clause:
+            return ' %s' % ' '.join(clause)
+        else:
+            return ''
+
     def __iter__(self):
-        return iter(self.transform_outgoing(i) for i in self._iterator)
+        return iter(self.transform_outgoing(i) for i in self._get_iterator())
 
     def count(self):
         return int(self.domain.select(self._get_count()).next()['count'])
 
     def next(self):
-        return self.transform_outgoing(self._iterator.next())
+        return self.transform_outgoing(self._get_iterator().next())
+
+    def limit(self, limit):
+        self._limit = limit
+        return self
+
+    def skip(self, skip):
+        self._skip = skip
+        return self
 
     def transform_outgoing(self, son):
         """Transform an object retrieved from the database"""
@@ -297,7 +326,7 @@ class Domain(object):
         return cursor.execute(query_string)
 
 
-class MongoDbModel(object):
+class MysqlModel(object):
     # Should provide these in subclasses
     cache = {}
     mutable = True
@@ -336,26 +365,15 @@ class MongoDbModel(object):
     @classmethod
     def get(cls, id):
         """Get an item with the given primary key"""
-        cached = cls.get_from_cache(id=id)
-        if cached:
-            return cached
-        else:
-            return cls.get_by_attributes(id=id)
+        return cls.get_by_attributes(id=id)
 
     @classmethod
     def get_from_cache_or_new(cls, id):
-        cached = cls.get_from_cache(id=id)
-        if cached:
-            return cached
-        else:
-            return cls(id=id)
+        return cls(id=id)
 
     @classmethod
     def get_from_cache(cls, id):
-        if cls._cache and id in cls._cache:
-            return cls._cache[id]
-        else:
-            return None
+        return None
 
     @classmethod
     def get_by_attributes(cls, **kwargs):
@@ -467,7 +485,7 @@ class MongoDbModel(object):
         return self.id == other.id
 
 
-class GitObjectAssociation(MongoDbModel, common.CommonMixin):
+class GitObjectAssociation(MysqlModel, common.CommonMixin):
     mutable = False
     has_type = False
     key1_name = None
@@ -481,8 +499,10 @@ class GitObjectAssociation(MongoDbModel, common.CommonMixin):
             setattr(self, self.key2_name, key2)
 
     @classmethod
-    def get_all(cls, sha1):
-        return cls._object_store.find({cls.key1_name : sha1})
+    def get_all(cls, sha1, key=None):
+        if key is None:
+            key = cls.key1_name
+        return cls._object_store.find({key : sha1})
 
     def __str__(self):
         return '%s: %s=%s, %s=%s' % (self.type,
@@ -610,25 +630,23 @@ class CommitParentCommit(GitObjectAssociation):
     parent_commit_id = make_persistent_attribute('parent_commit_id')
 
 
-class GitObject(MongoDbModel, common.CommonGitObjectMixin):
+class GitObject(MysqlModel, common.CommonGitObjectMixin):
     """The base class for git objects (such as blobs, commits, etc..)."""
     # Attributes: repository_ids, tag_ids, dirty
     __tablename__ = 'git_objects'
-    has_type = True
     _save_list = []
     _cache = {}
     dirty = make_persistent_attribute('dirty')
 
     @classmethod
-    def lookup_by_sha1(cls, sha1, partial=False, offset=0, limit=10):
+    def lookup_by_sha1(cls, sha1, partial=False, skip=None, limit=10):
         # TODO: might want to disable lookup for dirty objects, or something
         if partial:
-            safe_sha1 = '^%s' % re.escape(sha1)
-            results = cls._object_store.find({'id' : re.compile(safe_sha1)})
+            results = cls._object_store.find_prefix('id', sha1)
         else:
             results = cls._object_store.find({'id' : sha1})
         count = results.count()
-        return results.skip(offset).limit(limit), count
+        return results.skip(skip).limit(limit), count
 
     @classmethod
     def all(cls):
@@ -642,7 +660,7 @@ class GitObject(MongoDbModel, common.CommonGitObjectMixin):
 
     @property
     def repository_ids(self):
-        return Map(self._repository_ids, lambda x: x, count=len(self._repository_ids))    
+        return Map(GitObjectRepository.get_all(self.id), lambda gor: gor.repository_id)
 
     @property
     def repositories(self):
@@ -667,6 +685,7 @@ class GitObject(MongoDbModel, common.CommonGitObjectMixin):
 class Blob(GitObject, common.CommonBlobMixin):
     """Represents a git Blob.  Has an id (the sha1 that identifies this
     object)"""
+    has_type = True
 
     def add_parent(self, parent_id, name, mode):
         name = sanitize_unicode(name)
@@ -715,6 +734,7 @@ class Blob(GitObject, common.CommonBlobMixin):
 class Tree(GitObject, common.CommonTreeMixin):
     """Represents a git Tree.  Has an id (the sha1 that identifies this
     object)"""
+    has_type = True
 
     def add_parent(self, parent_id, name, mode):
         """Give this tree a parent.  Also updates the parent to know
@@ -728,7 +748,11 @@ class Tree(GitObject, common.CommonTreeMixin):
 
     @property
     def parent_ids_with_names(self):
-        return Map(TreeParentTree.get_all(self.id), lambda tpt: (tpt.tree_id, tpt.name))
+        return Map(TreeParentTree.get_all(self.id), lambda tpt: (tpt.parent_tree_id, tpt.name))
+
+    def limited_names(self, limit):
+        s = set(name for (id, name) in self.parent_ids_with_names.limit(limit))
+        return Map(s, lambda x: x, count=len(s))
 
     def add_commit(self, commit_id):
         commit_id = canonicalize_to_id(commit_id)
@@ -745,6 +769,9 @@ class Tree(GitObject, common.CommonTreeMixin):
     @property
     def commits(self):
         return Commit.find_matching(self.commit_ids)
+
+    def limited_parent_ids_with_names(self, limit):
+        return self.parent_ids_with_names.limit(limit)
 
     @property
     def parent_ids(self):
@@ -774,6 +801,7 @@ class Tree(GitObject, common.CommonTreeMixin):
 class Tag(GitObject, common.CommonTagMixin):
     """Represents a git Tree.  Has an id (the sha1 that identifies this
     object)"""
+    has_type = True
     # object_id = make_persistent_attribute('object_id')
 
     def add_tag(self, tag_id):
@@ -794,6 +822,13 @@ class Tag(GitObject, common.CommonTagMixin):
 class Commit(GitObject, common.CommonCommitMixin):
     """Represents a git Commit.  Has an id (the sha1 that identifies
     this object).  Also contains blobs, trees, and tags."""
+
+    @property
+    def child_ids(self):
+        return Map(CommitParentCommit.get_all(self.id, key='parent_commit_id'), lambda cpc: cpc.commit_id)
+
+    def limited_child_ids(self, limit):
+        return self.child_ids.limit(limit)
 
     @property
     def parent_ids(self):
@@ -834,7 +869,7 @@ class Commit(GitObject, common.CommonCommitMixin):
         b.save()
 
 
-class Repository(MongoDbModel, common.CommonRepositoryMixin):
+class Repository(MysqlModel, common.CommonRepositoryMixin):
     """A git repository.  Contains many commits."""
     _save_list = []
     __tablename__ = 'repositories'
@@ -892,10 +927,11 @@ class Repository(MongoDbModel, common.CommonRepositoryMixin):
 
     @classmethod
     def get_by_highest_count(cls, n=None, descending=True):
+        return cls._object_store.find()
         if descending:
-            order = pymongo.DESCENDING
+            order = 'DESCENDING'
         else:
-            order = pymongo.ASCENDING
+            order = 'ASCENDING'
         base = cls._object_store.find().sort('count', order)
         if n:
             full = base.limit(n)
@@ -933,7 +969,7 @@ class Repository(MongoDbModel, common.CommonRepositoryMixin):
         return 'Repository: %s' % self.url
 
 
-class Aggregate(MongoDbModel, common.CommonMixin):
+class Aggregate(MysqlModel, common.CommonMixin):
     """Singleton class that contains aggregate data about the indexer"""
     __tablename__ = 'aggregate'
     instance = None
@@ -953,19 +989,10 @@ class Aggregate(MongoDbModel, common.CommonMixin):
             self.field = field
 
         def __enter__(self):
-            self.klass._object_store.ensure_index(self.field)
+            pass
         
         def __exit__(self, type, value, traceback):
-            for name, value in self.klass._object_store.index_information().iteritems():
-                try:
-                    if len(value) == 1 and isinstance(value, list) and value[0][0] == self.field:
-                        self.klass._object_store.drop_index(name)
-                        break
-                except TypeError:
-                    logger.error('Unexpected index information output %s for' %
-                                 (value, self.field, self.klass.__name__))
-            else:
-                logger.error('No index on %s found for %s' % (self.field, self.klass.__name__))
+            pass
 
     @classmethod
     def get(cls):
@@ -1000,3 +1027,4 @@ class Aggregate(MongoDbModel, common.CommonMixin):
                         (self.blob_count, self.tree_count, self.commit_count, self.tag_count))
         self.save()
         flush()
+
