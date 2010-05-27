@@ -43,6 +43,18 @@ ${webhelpers.html.tags.submit('submit', 'Update')}
       % endif
       </ul>
 
+    <% child_ids = object.limited_child_ids(100) %>
+    <p> It also has the following ${h.pluralize(child_ids.count(), 'child commit', 'children commits', when='plural')}: </p>
+      <ul class="results">
+      % for child_id in child_ids:
+      <li> ${self.link_to_object(child_id)} </li>
+      % endfor
+      % if child_ids.count() > 100:
+      <li> And so on and so forth </li>
+      % endif
+      </ul>
+
+
   % elif object.type == 'blob':
     <% repos = object.limited_repositories(100) %>
     <p> Blob <tt>${self.show_object(object)}</tt> has been found in the following
@@ -182,7 +194,7 @@ ${webhelpers.html.tags.submit('submit', 'Update')}
 <ul class="results">
 % for object in c.objects:
 % if object.type == 'commit':
-<li> Commit <tt>${self.link_to_object(object)}</tt> comes from ${h.pluralize(object.repository_ids.count(), 'repository', 'repositories')}. </li>
+<li> Commit <tt>${self.link_to_object(object)}</tt> comes from ${h.pluralize(object.repository_ids.count(), 'repository', 'repositories')} and has ${h.pluralize(object.child_ids.count(), 'child commit', 'children commits')}. </li>
 % elif object.type == 'blob':
 <li>
   Blob <tt>${self.link_to_object(object)}</tt> comes from
