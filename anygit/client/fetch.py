@@ -29,6 +29,10 @@ class DieFile(Error):
     pass
 
 
+class DeadRepo(Error):
+    pass
+
+
 class Checker(threading.Thread):
     valid = None
     def __init__(self, repo):
@@ -125,11 +129,17 @@ def fetch(repo, state, recover_mode=False, discover_only=False,
     assert repo.host
     assert repo.path
     c = client.TCPGitClient(repo.host)
-    c.fetch_pack(path=repo.path,
-                 determine_wants=determine_wants,
-                 graph_walker=graph_walker,
-                 pack_data=pack_data,
-                 progress=progress)
+    try:
+        c.fetch_pack(path=repo.path,
+                     determine_wants=determine_wants,
+                     graph_walker=graph_walker,
+                     pack_data=pack_data,
+                     progress=progress)
+    except KeyboardInterrupt:
+        pass
+    except Exception, e:
+        logger.error('Problem when fetching %s: %s' % (repo, traceback.format_exc()))
+        raise DeadRepo
     destfile.close()
     return destfile_name
 
@@ -145,7 +155,7 @@ def _process_object(repo, obj, progress, type_mapper):
     # indexed_object will be the MongoDBModel we create
     progress(obj)
 
-    if obj._type == 'tree':
+    if obj.type_name == 'tree':
         indexed_object = models.Tree.get_from_cache_or_new(id=obj.id)
         for name, mode, sha1 in obj.iteritems():
             # Default the type of the child object to a commit (a submodule)
@@ -161,17 +171,17 @@ def _process_object(repo, obj, progress, type_mapper):
                 child = models.Commit.get_from_cache_or_new(id=sha1)
                 child.add_as_submodule_of(indexed_object, name=name, mode=mode)
             child.save()
-    elif obj._type == 'commit':
+    elif obj.type_name == 'commit':
         indexed_object = models.Commit.get_from_cache_or_new(id=obj.id)
         indexed_object.add_parents(obj.parents)
 
         child = models.Tree.get_from_cache_or_new(id=obj.tree)
         child.add_commit(indexed_object)
         child.save()
-    elif obj._type == 'tag':
+    elif obj.type_name == 'tag':
         # In dulwich, first entry is the child object.  In our custom parser,
         # it's None.
-        _, child_id = obj.get_object()
+        _, child_id = obj.object
         child_type = type_mapper[child_id]
 
         indexed_object = models.Tag.get_from_cache_or_new(id=obj.id)
@@ -180,18 +190,18 @@ def _process_object(repo, obj, progress, type_mapper):
         child = _objectify(id=child_id, type=child_type)
         child.add_tag(indexed_object)
         child.save()
-    elif obj._type == 'blob':
+    elif obj.type_name == 'blob':
         indexed_object = models.Blob.get_from_cache_or_new(id=obj.id)
     else:
-        raise ValueError('Unrecognized git object type %s' % obj._type)
+        raise ValueError('Unrecognized git object type %s' % obj.type_name)
     indexed_object.save()
 
 def _process_data(repo, uncompressed_pack, progress):
     logger.info('Dirtying objects for %s' % repo)
     type_mapper = {}
     for obj in uncompressed_pack.iterobjects():
-        type_mapper[obj.id] = obj._type
-        dirty = _objectify(id=obj.id, type=obj._type)
+        type_mapper[obj.id] = obj.type_name
+        dirty = _objectify(id=obj.id, type=obj.type_name)
         dirty.mark_dirty(True)
         dirty.add_repository(repo)
         dirty.save()
@@ -229,7 +239,7 @@ def index_data(data, repo, is_path=False, unpack=False):
             check_for_die_file()
             logger.info('About to process object %d for %s (object is %s %s)' % (counter['count'],
                                                                                  repo,
-                                                                                 object._type,
+                                                                                 object.type_name,
                                                                                  object.id))
     _process_data(repo, objects_iterator, progress)
 
@@ -271,16 +281,24 @@ def fetch_and_index(repo, recover_mode=False, packfile=None, batch=None, unpack=
         repo.set_remote_heads(repo.new_remote_heads)
         repo.set_new_remote_heads([])
         repo.save()
+        refresh_all_counts(all=False)
+    except DeadRepo:
+        logger.error('Marking %s as dead' % repo)
+        repo.approved = 0
+        repo.save()
+    except KeyboardInterrupt:
+        logger.info('Someone pushed ^C')
+        raise
     except Exception, e:
         logger.error('Had a problem indexing %s: %s' % (repo, traceback.format_exc()))
     finally:
+        repo.indexing = False
+        repo.save()
         if not packfile and data_path:
             try:
                 os.unlink(data_path)
             except IOError, e:
                 logger.error('Could not remove tmpfile %s.: %s' % (data_path, e))
-        repo.indexing = False
-        repo.save()
         models.flush()
     logger.info('Done with %s' % repo)
 
@@ -295,9 +313,9 @@ def fetch_and_index_threaded(repo):
         logger.error(traceback.format_exc())
         raise
 
-def index_all(last_index=None, threads=1):
-    repos = list(models.Repository.get_indexed_before(last_index))
-    logger.info('About to index %d repos' % len(repos))
+def index_all(last_index=None, threads=1, approved=None):
+    repos = models.Repository.get_indexed_before(last_index, approved=approved)
+    logger.info('About to index %d repos' % repos.count())
     if threads > 1:
         repo_ids = [r.id for r in repos]
         pool = multiprocessing.Pool(threads)
@@ -312,6 +330,6 @@ def check_for_die_file():
 
 def refresh_all_counts(all=None):
     aggregator = models.Aggregate.get()
-    aggregator.refresh_all_counts()
+    aggregator.refresh_all_counts(all=all)
     aggregator.save()
     models.flush()

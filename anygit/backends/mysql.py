@@ -915,16 +915,19 @@ class Repository(MysqlModel, common.CommonRepositoryMixin):
         return (self._new_remote_heads or '').split(',')
 
     @classmethod
-    def get_indexed_before(cls, date):
+    def get_indexed_before(cls, date, approved=None):
         """Get all repos indexed before the given date and not currently
         being indexed."""
+        if approved is None:
+            approved = 1
+
         # Hack: should be lazier about this.
         if date is not None:
             return cls._object_store.find({'last_index' : {'$lt' : date},
                                            'indexing' : 0,
-                                           'approved' : 1})
+                                           'approved' : approved})
         else:
-            return cls._object_store.find({'approved' : 1,
+            return cls._object_store.find({'approved' : approved,
                                            'indexing' : 0})
 
     @classmethod
@@ -1006,13 +1009,14 @@ class Aggregate(MysqlModel, common.CommonMixin):
                 flush()
         return cls.instance
 
-    def refresh_all_counts(self):
-        with Aggregate.index_executor(GitObject, 'repository_ids'):
-            for repo in Repository.all():
-                count = repo.count_objects()
-                repo.set_count(count)
-                logger.info('Setting count for %s to %d' % (repo, count))
-                repo.save()
+    def refresh_all_counts(self, all=None):
+        if all:
+            with Aggregate.index_executor(GitObject, 'repository_ids'):
+                for repo in Repository.all():
+                    count = repo.count_objects()
+                    repo.set_count(count)
+                    logger.info('Setting count for %s to %d' % (repo, count))
+                    repo.save()
 
         with Aggregate.index_executor(Repository, 'been_indexed'):
             count = self.indexed_repository_count = Repository.find({'been_indexed' : True}).count()

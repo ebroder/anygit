@@ -49,6 +49,23 @@ class ObjectsIterator(object):
         else:
             return self.uncompressed_pack.iterobjects()
 
+def wrap_dulwich_object(obj):
+    try:
+        type = obj._type
+    except AttributeError:
+        # Is new style, just return
+        return obj
+    else:
+        if type == 'tree':
+            return Tree(obj.id, obj.iteritems())
+        elif type == 'tag':
+            # Name used to be get_object, now is a property object.
+            return Tag(obj.id, obj.get_object()[1])
+        elif type == 'commit':
+            return Commit(obj.id, obj.tree, obj.parents)
+        else:
+            assert type == 'blob'
+            return Blob(obj.id)
 
 class GitObject(object):
     """A git object, copying the interface of dulwich objects."""
@@ -60,7 +77,7 @@ class GitObject(object):
 
 
 class Tree(GitObject):
-    _type = 'tree'
+    type_name = 'tree'
 
     def __init__(self, id, children):
         super(Tree, self).__init__(id)
@@ -71,18 +88,19 @@ class Tree(GitObject):
 
 
 class Tag(GitObject):
-    _type = 'tag'
+    type_name = 'tag'
 
     def __init__(self, id, child_sha1):
-        super(Tree, self).__init__(id)
+        super(Tag, self).__init__(id)
         self.child_sha1 = child_sha1
 
-    def get_object(self):
+    @property
+    def object(self):
         return (None, self.child_sha1)
 
 
 class Commit(GitObject):
-    _type = 'commit'
+    type_name = 'commit'
 
     def __init__(self, id, tree, parents):
         super(Commit, self).__init__(id)
@@ -91,7 +109,7 @@ class Commit(GitObject):
 
 
 class Blob(GitObject):
-    _type = 'blob'    
+    type_name = 'blob'    
 
 def get_next_len(f):
     t = f.read(1)
