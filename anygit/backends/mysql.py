@@ -169,9 +169,11 @@ class Map(object):
 
 
 class Query(object):
-    def __init__(self, domain, query):
+    def __init__(self, domain, query, is_full_query=None):
+        self.is_full_query = is_full_query
         self._limit = None
         self._skip = None
+        self._order = None
         self.domain = domain
         if isinstance(query, dict):
             items = []
@@ -200,13 +202,22 @@ class Query(object):
             self._iterator = iter(self.domain.select(self._get_select()))
         return self._iterator
 
+    def _get_order(self):
+        if self._order:
+            return ' ORDER BY `%s` %s' % self._order
+        else:
+            return ''
+
     def _get_select(self):
         # TODO: select a subset of attributes
+        if self.is_full_query:
+            return self.query
+
         if self.query:
             full_query = 'select * from `%s` where %s' % (self.domain.name, self.query)
         else:
             full_query = 'select * from `%s`' % self.domain.name
-        return full_query + self._get_limit()
+        return full_query + self._get_order() + self._get_limit()
 
     def _get_count(self):
         if self.query:
@@ -243,6 +254,11 @@ class Query(object):
         self._skip = skip
         return self
 
+    def order(self, column, type):
+        """Order the results.  type should be ASC or DESC"""
+        self._order = (column, type)
+        return self
+
     def transform_outgoing(self, son):
         """Transform an object retrieved from the database"""
         if 'type' in son:
@@ -260,8 +276,8 @@ class Domain(object):
         self.connection = connection
         self.name = name
 
-    def find(self, kwargs=''):
-        return Query(self, kwargs)
+    def find(self, kwargs='', is_full_query=None):
+        return Query(self, kwargs, is_full_query=is_full_query)
 
     def find_one(self, kwargs):
         result = self.find(kwargs)
@@ -932,17 +948,20 @@ class Repository(MysqlModel, common.CommonRepositoryMixin):
 
     @classmethod
     def get_by_highest_count(cls, n=None, descending=True):
-        return cls._object_store.find()
         if descending:
-            order = 'DESCENDING'
+            order = 'DESC'
         else:
-            order = 'ASCENDING'
-        base = cls._object_store.find().sort('count', order)
+            order = 'ASC'
+
         if n:
-            full = base.limit(n)
+            limit = ' LIMIT %d' % n
         else:
-            full = base
-        return full
+            limit = ''
+
+        #query = ('select * from (select repository_id from git_object_repositories group by '
+        #        'repository_id order by count(*) %s%s) as assoc LEFT JOIN repositories '
+        #         'on assoc.repository_id = repositories.id') % (order, limit)
+        return cls._object_store.find().order('count', order).limit(n)
 
     def set_count(self, value):
         self.count = value
