@@ -295,9 +295,9 @@ def fetch_and_index_threaded(repo):
         logger.error(traceback.format_exc())
         raise
 
-def index_all(last_index=None, threads=1):
-    repos = list(models.Repository.get_indexed_before(last_index))
-    logger.info('About to index %d repos' % len(repos))
+def index_all(last_index=None, threads=1, approved=None):
+    repos = models.Repository.get_indexed_before(last_index, approved=approved)
+    logger.info('About to index %d repos' % repos.count())
     if threads > 1:
         repo_ids = [r.id for r in repos]
         pool = multiprocessing.Pool(threads)

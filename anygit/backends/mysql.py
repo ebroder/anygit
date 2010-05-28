@@ -915,16 +915,19 @@ class Repository(MysqlModel, common.CommonRepositoryMixin):
         return (self._new_remote_heads or '').split(',')
 
     @classmethod
-    def get_indexed_before(cls, date):
+    def get_indexed_before(cls, date, approved=None):
         """Get all repos indexed before the given date and not currently
         being indexed."""
+        if approved is None:
+            approved = 1
+
         # Hack: should be lazier about this.
         if date is not None:
             return cls._object_store.find({'last_index' : {'$lt' : date},
                                            'indexing' : 0,
-                                           'approved' : 1})
+                                           'approved' : approved})
         else:
-            return cls._object_store.find({'approved' : 1,
+            return cls._object_store.find({'approved' : approved,
                                            'indexing' : 0})
 
     @classmethod

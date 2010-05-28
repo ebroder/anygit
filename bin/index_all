@@ -1,8 +1,17 @@
 #!/usr/bin/env python
+import optparse
 import os
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from anygit import clisetup
 from anygit.client import fetch
-fetch.index_all(threads=8)
+def main():
+    parser = optparse.OptionParser('%prog [options] {add,list,approve,clear}')
+    parser.add_option('-t', '--type', dest='type', default='1',
+                      help='Which type to index')
+    opts, args = parser.parse_args()
+    fetch.index_all(threads=8, approved=opts.type)
+
+if __name__ == '__main__':
+    sys.exit(main())
