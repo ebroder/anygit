@@ -693,8 +693,9 @@ class GitObject(MysqlModel, common.CommonGitObjectMixin):
 
     @property
     def dirty(self):
-        return bool_extractor(self._object_store.find('select count(*) from git_object_repositories as gor LEFT JOIN '
-                                                      ' repositories as r on gor.repository_id = r.id where dirty = 1'))
+        return bool_extractor(self._object_store.select('select count(*) as c from git_object_repositories as gor LEFT JOIN '
+                                                        'repositories as r on gor.repository_id = r.id where dirty = 1 and '
+                                                        'gor.git_object_id = %s' % self._object_store._encode(self.id)).next()['c'])
 
 
 class Blob(GitObject, common.CommonBlobMixin):
