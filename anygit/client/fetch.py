@@ -145,7 +145,7 @@ def _process_object(repo, obj, progress, type_mapper):
     # indexed_object will be the MongoDBModel we create
     progress(obj)
 
-    if obj._type == 'tree':
+    if obj.type_name == 'tree':
         indexed_object = models.Tree.get_from_cache_or_new(id=obj.id)
         for name, mode, sha1 in obj.iteritems():
             # Default the type of the child object to a commit (a submodule)
@@ -161,17 +161,17 @@ def _process_object(repo, obj, progress, type_mapper):
                 child = models.Commit.get_from_cache_or_new(id=sha1)
                 child.add_as_submodule_of(indexed_object, name=name, mode=mode)
             child.save()
-    elif obj._type == 'commit':
+    elif obj.type_name == 'commit':
         indexed_object = models.Commit.get_from_cache_or_new(id=obj.id)
         indexed_object.add_parents(obj.parents)
 
         child = models.Tree.get_from_cache_or_new(id=obj.tree)
         child.add_commit(indexed_object)
         child.save()
-    elif obj._type == 'tag':
+    elif obj.type_name == 'tag':
         # In dulwich, first entry is the child object.  In our custom parser,
         # it's None.
-        _, child_id = obj.get_object()
+        _, child_id = obj.object
         child_type = type_mapper[child_id]
 
         indexed_object = models.Tag.get_from_cache_or_new(id=obj.id)
@@ -180,18 +180,18 @@ def _process_object(repo, obj, progress, type_mapper):
         child = _objectify(id=child_id, type=child_type)
         child.add_tag(indexed_object)
         child.save()
-    elif obj._type == 'blob':
+    elif obj.type_name == 'blob':
         indexed_object = models.Blob.get_from_cache_or_new(id=obj.id)
     else:
-        raise ValueError('Unrecognized git object type %s' % obj._type)
+        raise ValueError('Unrecognized git object type %s' % obj.type_name)
     indexed_object.save()
 
 def _process_data(repo, uncompressed_pack, progress):
     logger.info('Dirtying objects for %s' % repo)
     type_mapper = {}
     for obj in uncompressed_pack.iterobjects():
-        type_mapper[obj.id] = obj._type
-        dirty = _objectify(id=obj.id, type=obj._type)
+        type_mapper[obj.id] = obj.type_name
+        dirty = _objectify(id=obj.id, type=obj.type_name)
         dirty.mark_dirty(True)
         dirty.add_repository(repo)
         dirty.save()
@@ -229,7 +229,7 @@ def index_data(data, repo, is_path=False, unpack=False):
             check_for_die_file()
             logger.info('About to process object %d for %s (object is %s %s)' % (counter['count'],
                                                                                  repo,
-                                                                                 object._type,
+                                                                                 object.type_name,
                                                                                  object.id))
     _process_data(repo, objects_iterator, progress)
 
