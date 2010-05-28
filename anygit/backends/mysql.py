@@ -691,6 +691,11 @@ class GitObject(MysqlModel, common.CommonGitObjectMixin):
         gor = GitObjectRepository(self.id, repository_id)
         gor.save()
 
+    @property
+    def dirty(self):
+        return bool_extractor(self._object_store.find('select count(*) from git_object_repositories as gor LEFT JOIN '
+                                                      ' repositories as r on gor.repository_id = r.id where dirty = 1'))
+
 
 class Blob(GitObject, common.CommonBlobMixin):
     """Represents a git Blob.  Has an id (the sha1 that identifies this
