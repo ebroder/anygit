@@ -49,7 +49,10 @@ class QueryController(BaseController):
         return render('query.mako', controller='query', error_now=error_now)
 
     def query_with_string(self):
-        query = request.params.get('query', '')
-        limit = request.params.get('limit', '')
-        redirect_to(action='query', id=query, limit=limit)
+        kwargs = {'action' : 'query'}
+        if 'query' in request.params:
+            kwargs['id'] = request.params['query']
+        if 'limit' in request.params:
+            kwargs['limit'] = request.params['limit']
+        redirect_to(**kwargs)
     q = query
