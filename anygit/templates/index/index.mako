@@ -17,9 +17,11 @@
 
 <div class="box" id="current">
 	<div class="info"><h2>Currently indexed:</h2></div>
-	<div id="repo"><b>${aggregate.indexed_repository_count}</b> repos
+	<div id="repo"><b>${aggregate.indexed_repository_count} </b>
+		${h.pluralize(aggregate.indexed_repository_count, 'repo', when='never')}
 		<img src="${url('/static/git-repo.png')}" onclick="setfocus('url');"></div>
-	<div id="blob"><b>${aggregate.blob_count}</b> blobs
+	<div id="blob"><b>${aggregate.blob_count} </b>
+		${h.pluralize(aggregate.blob_count, 'blob', when='never')}
 		<img src="${url('/static/git-blob.png')}" onclick="setfocus('query');"></div>
 	<div id="tree"><b>${aggregate.tree_count} </b>
 		${h.pluralize(aggregate.tree_count, 'tree', when='never')}
