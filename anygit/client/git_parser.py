@@ -47,7 +47,7 @@ class ObjectsIterator(object):
                                  stdout=subprocess.PIPE)
             return parse(p.stdout)
         else:
-            return self.uncompressed_pack.iterobjects()
+            return (wrap_dulwich_object(obj) for obj in self.uncompressed_pack.iterobjects())
 
 def wrap_dulwich_object(obj):
     try:
