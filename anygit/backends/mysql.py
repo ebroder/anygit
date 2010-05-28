@@ -823,6 +823,7 @@ class Tag(GitObject, common.CommonTagMixin):
 class Commit(GitObject, common.CommonCommitMixin):
     """Represents a git Commit.  Has an id (the sha1 that identifies
     this object).  Also contains blobs, trees, and tags."""
+    has_type = True
 
     @property
     def child_ids(self):
