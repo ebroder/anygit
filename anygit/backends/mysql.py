@@ -43,7 +43,8 @@ def setup():
     connection = MySQLdb.connect(host=config.get('mysql.host'),
                                  user=config.get('mysql.user'),
                                  passwd=config.get('mysql.password'),
-                                 db=config.get('mysql.db'))
+                                 db=config.get('mysql.db'),
+                                 ssl={'ca' : config.get('mysql.cert')})
     init_model(connection)
 
 def destroy_session():
