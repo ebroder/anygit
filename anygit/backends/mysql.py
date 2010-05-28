@@ -296,7 +296,7 @@ class Domain(object):
             else:
                 return '0'
         else:
-            return repr(str(value).lstrip('u'))
+            return repr(unicode(value)).lstrip('u')
 
     def _prepare_params(self, id, attributes):
         keys = []
