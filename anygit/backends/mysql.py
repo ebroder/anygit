@@ -1009,13 +1009,14 @@ class Aggregate(MysqlModel, common.CommonMixin):
                 flush()
         return cls.instance
 
-    def refresh_all_counts(self):
-        with Aggregate.index_executor(GitObject, 'repository_ids'):
-            for repo in Repository.all():
-                count = repo.count_objects()
-                repo.set_count(count)
-                logger.info('Setting count for %s to %d' % (repo, count))
-                repo.save()
+    def refresh_all_counts(self, all=None):
+        if all:
+            with Aggregate.index_executor(GitObject, 'repository_ids'):
+                for repo in Repository.all():
+                    count = repo.count_objects()
+                    repo.set_count(count)
+                    logger.info('Setting count for %s to %d' % (repo, count))
+                    repo.save()
 
         with Aggregate.index_executor(Repository, 'been_indexed'):
             count = self.indexed_repository_count = Repository.find({'been_indexed' : True}).count()

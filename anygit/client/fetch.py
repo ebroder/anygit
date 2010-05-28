@@ -312,6 +312,6 @@ def check_for_die_file():
 
 def refresh_all_counts(all=None):
     aggregator = models.Aggregate.get()
-    aggregator.refresh_all_counts()
+    aggregator.refresh_all_counts(all=all)
     aggregator.save()
     models.flush()
