@@ -686,7 +686,7 @@ class GitObject(MysqlModel, common.CommonGitObjectMixin):
     def tags(self):
         return Tag.find_matching(self.tag_ids)
 
-    def add_repository(self, repository_id, recursive=False):
+    def add_repository(self, repository_id):
         repository_id = canonicalize_to_id(repository_id)
         gor = GitObjectRepository(self.id, repository_id)
         gor.save()
@@ -769,11 +769,6 @@ class Tree(GitObject, common.CommonTreeMixin):
         s = set(name for (id, name) in self.parent_ids_with_names.limit(limit))
         return Map(s, lambda x: x, count=len(s))
 
-    def add_commit(self, commit_id):
-        commit_id = canonicalize_to_id(commit_id)
-        t = TreeCommit(key1=self.id, key2=commit_id)
-        t.save()
-
     @property
     def commit_ids(self):
         return Map(TreeCommit.get_all(self.id), lambda tc: tc.commit_id)
@@ -824,11 +819,6 @@ class Tag(GitObject, common.CommonTagMixin):
         b = TagParentTag(key1=self.id, key2=tag_id)
         b.save()
 
-    def set_object_id(self, object_id):
-        # object_id = canonicalize_to_id(object_id)
-        # self.object_id = object_id
-        pass
-
     @property
     def object(self):
         return GitObject.get(id=self.object_id)
@@ -858,6 +848,11 @@ class Commit(GitObject, common.CommonCommitMixin):
         for parent_id in parent_ids:
             cpc = CommitParentCommit(self.id, parent_id)
             cpc.save()
+
+    def add_tree(self, tree_id):
+        tree_id = canonicalize_to_id(tree_id)
+        t = TreeCommit(key1=tree_id, key2=self.id)
+        t.save()
 
     def add_as_submodule_of(self, tree_id, name, mode):
         tree_id = canonicalize_to_id(tree_id)

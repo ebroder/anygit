@@ -149,60 +149,61 @@ def _objectify(id, type):
               'tag' : models.Tag}
     return mapper[type].get_from_cache_or_new(id=id)
 
-def _process_object(repo, obj, progress, type_mapper):
+def _process_object(repo, obj, progress, type_mapper, iteration):
     # obj is Dulwich object
     # indexed_object will be the MongoDBModel we create
     progress(obj)
 
-    if obj.type_name == 'tree':
-        indexed_object = models.Tree.get_from_cache_or_new(id=obj.id)
-        for name, mode, sha1 in obj.iteritems():
-            # Default the type of the child object to a commit (a submodule)
-            child_type = type_mapper.setdefault(sha1, 'commit')
-            if child_type == 'tree':
-                child = models.Tree.get_from_cache_or_new(id=sha1)
-                child.add_parent(indexed_object, name=name, mode=mode)
-            elif child_type == 'blob':
-                child = models.Blob.get_from_cache_or_new(id=sha1)
-                child.add_parent(indexed_object, name=name, mode=mode)
-            else:
-                assert child_type == 'commit'
-                child = models.Commit.get_from_cache_or_new(id=sha1)
-                child.add_as_submodule_of(indexed_object, name=name, mode=mode)
-            child.save()
-    elif obj.type_name == 'commit':
-        indexed_object = models.Commit.get_from_cache_or_new(id=obj.id)
-        indexed_object.add_parents(obj.parents)
-
-        child = models.Tree.get_from_cache_or_new(id=obj.tree)
-        child.add_commit(indexed_object)
-        child.save()
-    elif obj.type_name == 'tag':
-        # In dulwich, first entry is the child object.  In our custom parser,
-        # it's None.
-        _, child_id = obj.object
-        child_type = type_mapper[child_id]
-
-        indexed_object = models.Tag.get_from_cache_or_new(id=obj.id)
-        indexed_object.set_object_id(child_id)
-
-        child = _objectify(id=child_id, type=child_type)
-        child.add_tag(indexed_object)
-        child.save()
-    elif obj.type_name == 'blob':
-        indexed_object = models.Blob.get_from_cache_or_new(id=obj.id)
+    if iteration == 1:
+        if obj.type_name == 'tree':
+            indexed_object = models.Tree.get_from_cache_or_new(id=obj.id)
+        elif obj.type_name == 'commit':
+            indexed_object = models.Commit.get_from_cache_or_new(id=obj.id)
+            indexed_object.add_parents(obj.parents)
+            indexed_object.add_tree(obj.tree)
+        elif obj.type_name == 'tag':
+            indexed_object = models.Tag.get_from_cache_or_new(id=obj.id)
+        else:
+            assert obj.type_name == 'blob'
+            indexed_object = models.Blob.get_from_cache_or_new(id=obj.id)
+        indexed_object.save()
+        indexed_object.add_repository(repo)
     else:
-        raise ValueError('Unrecognized git object type %s' % obj.type_name)
-    indexed_object.save()
+        if obj.type_name == 'tree':
+            for name, mode, sha1 in obj.iteritems():
+                # Default the type of the child object to a commit (a submodule)
+                child_type = type_mapper.setdefault(sha1, 'commit')
+                if child_type == 'tree':
+                    child = models.Tree.get_from_cache_or_new(id=sha1)
+                    child.add_parent(obj.id, name=name, mode=mode)
+                elif child_type == 'blob':
+                    child = models.Blob.get_from_cache_or_new(id=sha1)
+                    child.add_parent(obj.id, name=name, mode=mode)
+                else:
+                    assert child_type == 'commit'
+                    child = models.Commit.get_from_cache_or_new(id=sha1)
+                    child.add_as_submodule_of(obj.id, name=name, mode=mode)
+        elif obj.type_name == 'tag':
+            # In dulwich, first entry is the child object.  In our custom parser,
+            # it's None.
+            _, child_id = obj.object
+            child_type = type_mapper[child_id]
+            child = _objectify(id=child_id, type=child_type)
+            child.add_tag(indexed_object)
+        else:
+            # Nothing to do for these.
+            assert obj.type_name == 'blob' or obj.type_name == 'commit'
 
 def _process_data(repo, uncompressed_pack, progress):
     logger.info('Creating objects for %s' % repo)
     type_mapper = {}
     for obj in uncompressed_pack.iterobjects():
         type_mapper[obj.id] = obj.type_name
-        dirty = _objectify(id=obj.id, type=obj.type_name)
-        dirty.add_repository(repo)
-        dirty.save()
+        _process_object(repo=repo,
+                        obj=obj,
+                        progress=progress,
+                        type_mapper=None,
+                        iteration=1)
     logger.info('Constructed object type map of size %s (%d bytes) for %s' %
                 (len(type_mapper), type_mapper.__sizeof__(), repo))
     models.flush()
@@ -212,7 +213,8 @@ def _process_data(repo, uncompressed_pack, progress):
         _process_object(repo=repo,
                         obj=obj,
                         progress=progress,
-                        type_mapper=type_mapper)
+                        type_mapper=type_mapper,
+                        iteration=2)
 
 def index_data(data, repo, is_path=False, unpack=False):
     if is_path:
