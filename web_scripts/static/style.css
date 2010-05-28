@@ -142,11 +142,18 @@ ul#error-messages, i {
 }
 
 #current b {
-    font-size: 16pt;
+    font-size: 20pt;
+    line-height: 34px;
     font-weight: bold;
     color: #000;
 }
 
+#current div {
+    position: relative;
+}
+
 #current div img {
-    float: right;
+    position: absolute;
+    right: 5%;
+    top: 0.5em;
 }
