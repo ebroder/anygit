@@ -119,3 +119,22 @@ if not isinstance(obj, basestring):
  <a href="${v}">(view)</a>
 % endif
 </%def>
+
+<%def name="query_box(value='')">
+<p>
+<% from routes.util import url_for %>
+${webhelpers.html.secure_form.secure_form(url_for(controller='query', action='query_with_string'))}
+${webhelpers.html.tags.text('query', value, title='SHA-1 hash to search for')}
+<%
+  try:
+    limit = int(c.limit)
+  except ValueError:
+    limit = 10
+%>
+${webhelpers.html.tags.select('limit', limit,
+    [ (v, '%s per page' % h.pluralize(v, 'result')) for v in sorted(set([1, 5, 10, 20, 50, 100, limit])) ],
+    title='Results per page')}
+${webhelpers.html.tags.submit('submit', 'Update')}
+${webhelpers.html.tags.end_form()}
+</p>
+</%def>
