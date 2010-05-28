@@ -16,6 +16,7 @@ class QueryController(BaseController):
         return render('index.mako', controller='query')
 
     def query(self, id, limit=''):
+        id = id.strip()
         if not sha1_re.search(id):
             error_now = ('You should be querying for a SHA1.  These are written in '
                          'hexadecimal (so they consist of a-f and 0-9).  Your query, '
