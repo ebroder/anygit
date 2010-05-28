@@ -79,9 +79,8 @@ def fetch(repo, state, recover_mode=False, discover_only=False,
         # requires a lot of database reads, which is unfortunately a
         # luxury we don't have.  Thus we only report the remote heads
         # that we have already seen from this repo.
-        if not recover_mode and not get_count:
-            matching_commits = set(c.id for c in models.Commit.find_matching(refs_dict.itervalues(),
-                                                                             dirty=False)
+        if not recover_mode and not get_count and not repo.dirty:
+            matching_commits = set(c.id for c in models.Commit.find_matching(refs_dict.itervalues())
                                    if repo.id in c.repository_ids)
         else:
             matching_commits = set()
@@ -197,12 +196,11 @@ def _process_object(repo, obj, progress, type_mapper):
     indexed_object.save()
 
 def _process_data(repo, uncompressed_pack, progress):
-    logger.info('Dirtying objects for %s' % repo)
+    logger.info('Creating objects for %s' % repo)
     type_mapper = {}
     for obj in uncompressed_pack.iterobjects():
         type_mapper[obj.id] = obj.type_name
         dirty = _objectify(id=obj.id, type=obj.type_name)
-        dirty.mark_dirty(True)
         dirty.add_repository(repo)
         dirty.save()
     logger.info('Constructed object type map of size %s (%d bytes) for %s' %
@@ -215,12 +213,6 @@ def _process_data(repo, uncompressed_pack, progress):
                         obj=obj,
                         progress=progress,
                         type_mapper=type_mapper)
-
-    logger.info('Cleaning objects for %s' % repo)
-    for id, type in type_mapper.iteritems():
-        dirty = _objectify(id=id, type=type)
-        dirty.mark_dirty(False)
-        dirty.save()
 
 def index_data(data, repo, is_path=False, unpack=False):
     if is_path:
@@ -262,6 +254,7 @@ def fetch_and_index(repo, recover_mode=False, packfile=None, batch=None, unpack=
     try:
         # Don't let other people try to index in parallel
         repo.indexing = True
+        repo.dirty = True
         repo.save()
         models.flush()
         state = {}
@@ -277,6 +270,7 @@ def fetch_and_index(repo, recover_mode=False, packfile=None, batch=None, unpack=
         repo.last_index = now
         repo.been_indexed = True
         repo.approved = True
+        repo.dirty = False
         # Finally, clobber the old remote heads.
         repo.set_remote_heads(repo.new_remote_heads)
         repo.set_new_remote_heads([])
@@ -287,7 +281,7 @@ def fetch_and_index(repo, recover_mode=False, packfile=None, batch=None, unpack=
         repo.approved = 0
         repo.save()
     except KeyboardInterrupt:
-        logger.info('Someone pushed ^C')
+        logger.info('^C pushed; exiting thread')
         raise
     except Exception, e:
         logger.error('Had a problem indexing %s: %s' % (repo, traceback.format_exc()))

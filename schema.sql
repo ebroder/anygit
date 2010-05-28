@@ -86,7 +86,6 @@ CREATE TABLE `tag_parent_tags` (
 DROP TABLE IF EXISTS `git_objects`;
 CREATE TABLE `git_objects` (
   `id` binary(40) NOT NULL,
-  `dirty` tinyint(1),
   `type` varchar(20) COLLATE utf8_bin NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
@@ -96,11 +95,12 @@ DROP TABLE IF EXISTS `repositories`;
 CREATE TABLE `repositories` (
   `id` binary(40) NOT NULL,
   `url` varchar(3000) COLLATE utf8_bin NOT NULL,
-  `been_indexed` tinyint(1),
+  `been_indexed` tinyint(1) NOT NULL DEFAULT 0,
   `last_index` datetime,
   `indexing` tinyint(1) NOT NULL DEFAULT 0,
   `approved` varchar(20) NOT NULL DEFAULT 'spidered',
   `count` int(11) NOT NULL DEFAULT 0,
+  `dirty` tinyint(1) NOT NULL DEFAULT 0,
   `_remote_heads` MEDIUMTEXT,
   `_new_remote_heads` MEDIUMTEXT,
   PRIMARY KEY (`id`)

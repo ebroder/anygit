@@ -364,7 +364,7 @@ class Domain(object):
 class MysqlModel(object):
     # Should provide these in subclasses
     cache = {}
-    mutable = True
+    mutable = False
     has_type = False
 
     def __init__(self, _raw_dict={}, **kwargs):
@@ -519,7 +519,6 @@ class MysqlModel(object):
 
 
 class GitObjectAssociation(MysqlModel, common.CommonMixin):
-    mutable = False
     has_type = False
     key1_name = None
     key2_name = None
@@ -665,15 +664,12 @@ class CommitParentCommit(GitObjectAssociation):
 
 class GitObject(MysqlModel, common.CommonGitObjectMixin):
     """The base class for git objects (such as blobs, commits, etc..)."""
-    # Attributes: repository_ids, tag_ids, dirty
     __tablename__ = 'git_objects'
     _save_list = []
     _cache = {}
-    dirty = make_persistent_attribute('dirty')
 
     @classmethod
     def lookup_by_sha1(cls, sha1, partial=False, skip=None, limit=10):
-        # TODO: might want to disable lookup for dirty objects, or something
         if partial:
             results = cls._object_store.find_prefix('id', sha1)
         else:
@@ -687,9 +683,6 @@ class GitObject(MysqlModel, common.CommonGitObjectMixin):
             return cls._object_store.find()
         else:
             return cls._object_store.find({'type' : cls.__name__.lower()})
-
-    def mark_dirty(self, value):
-        self.dirty = value
 
     @property
     def repository_ids(self):
@@ -905,6 +898,7 @@ class Commit(GitObject, common.CommonCommitMixin):
 
 class Repository(MysqlModel, common.CommonRepositoryMixin):
     """A git repository.  Contains many commits."""
+    mutable = True
     _save_list = []
     __tablename__ = 'repositories'
 
@@ -925,6 +919,9 @@ class Repository(MysqlModel, common.CommonRepositoryMixin):
     count = make_persistent_attribute('count',
                                       default=0,
                                       extractor=int)
+    dirty = make_persistent_attribute('dirty',
+                                      default=False,
+                                      extractor=bool_extractor)
 
     _remote_heads = make_persistent_attribute('_remote_heads', default='')
     _new_remote_heads = make_persistent_attribute('_new_remote_heads', default='')
@@ -936,7 +933,10 @@ class Repository(MysqlModel, common.CommonRepositoryMixin):
 
     @property
     def clean_remote_heads(self):
-        return Map(Commit.find_matching(self.remote_heads, dirty=False), lambda c: c.id)
+        if self.dirty:
+            return Map([], lambda x: x, count=0)
+        else:
+            return Map(Commit.find_matching(self.remote_heads), lambda c: c.id)
 
     @property
     def remote_heads(self):
