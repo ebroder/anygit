@@ -310,22 +310,40 @@ class Domain(object):
             values.append(self._encode(v))
         return keys, values
 
-    def insert(self, attributes, delayed=True):
+    def insert(self, attributes, delayed=True, on_duplicate_key=False):
         keys, values = self._prepare_params(None, attributes)
         if delayed:
             delayed_statement = ' DELAYED'
         else:
             delayed_statement = ''
-        query = 'INSERT%s IGNORE INTO `%s` (%s) VALUES (%s)' % (delayed_statement,
-                                                                self.name,
-                                                                ', '.join(keys),
-                                                                ', '.join(values))
+
+        if on_duplicate_key:
+            args = _update_string(keys, values)
+            on_duplicate_key_statement = ' ON DUPLICATE KEY %s UPDATE %s' % args
+        else:
+            on_duplicate_key_statement = ''
+        query = 'INSERT%s IGNORE INTO `%s` (%s) VALUES (%s)%s' % (delayed_statement,
+                                                                  self.name,
+                                                                  ', '.join(keys),
+                                                                  ', '.join(values),
+                                                                  on_duplicate_key_statement)
         self._execute(query)
 
+    def _update_string(self, keys, values, exclude=set('id', 'type')):
+        query = ', '.join('%s=%s' % (k, v) for k, v in zip(keys, values)
+                          if k not in exclude)
+        # Try to get rid of everything you can.  But... need to have
+        # at least one thing in our query, so if only are setting
+        # excluded attributes, should keep them around.
+        if query:
+            return query
+        else:
+            return self._update_string(keys, values, exclude=())
+        
     def update(self, id, attributes):
         keys, values = self._prepare_params(None, attributes)
         # Mutable
-        args = ', '.join('%s=%s' % (k, v) for k, v in zip(keys, values))
+        args = self._update_string(keys, values)
         query = 'UPDATE `%s` SET %s WHERE `id` = %s' % (self.name, args, self._encode(id))
         self._execute(query)
 
@@ -447,9 +465,7 @@ class MysqlModel(object):
                         self._object_store.update(self.id,
                                                   updates)
                     elif self.mutable:
-                        self._object_store.insert(updates, delayed=False)
-                        self._object_store.update(self.id,
-                                                  updates)
+                        self._object_store.insert(updates, on_duplicate_key=True)
                     else:
                         self._object_store.insert(updates)
                 except:
