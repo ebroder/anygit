@@ -46,6 +46,7 @@ ${webhelpers.html.tags.submit('submit', 'Update')}
       </ul>
 
     <% child_ids = object.limited_child_ids(100) %>
+    % if child_ids.count():
     <p> It also has the following ${h.pluralize(child_ids.count(), 'child commit', 'children commits', when='plural')}: </p>
       <ul class="results">
       % for child_id in child_ids:
@@ -55,6 +56,9 @@ ${webhelpers.html.tags.submit('submit', 'Update')}
       <li> And so on and so forth </li>
       % endif
       </ul>
+    % else:
+    <p> It has no children commits </p>
+    % endif
 
 
   % elif object.type == 'blob':
