@@ -29,6 +29,10 @@ class DieFile(Error):
     pass
 
 
+class DeadRepo(Error):
+    pass
+
+
 class Checker(threading.Thread):
     valid = None
     def __init__(self, repo):
@@ -125,11 +129,17 @@ def fetch(repo, state, recover_mode=False, discover_only=False,
     assert repo.host
     assert repo.path
     c = client.TCPGitClient(repo.host)
-    c.fetch_pack(path=repo.path,
-                 determine_wants=determine_wants,
-                 graph_walker=graph_walker,
-                 pack_data=pack_data,
-                 progress=progress)
+    try:
+        c.fetch_pack(path=repo.path,
+                     determine_wants=determine_wants,
+                     graph_walker=graph_walker,
+                     pack_data=pack_data,
+                     progress=progress)
+    except KeyboardInterrupt:
+        pass
+    except Exception, e:
+        logger.error('Problem when fetching %s: %s' % (repo, traceback.format_exc()))
+        raise DeadRepo
     destfile.close()
     return destfile_name
 
@@ -271,16 +281,24 @@ def fetch_and_index(repo, recover_mode=False, packfile=None, batch=None, unpack=
         repo.set_remote_heads(repo.new_remote_heads)
         repo.set_new_remote_heads([])
         repo.save()
+        refresh_all_counts(all=False)
+    except DeadRepo:
+        logger.error('Marking %s as dead' % repo)
+        repo.approved = 0
+        repo.save()
+    except KeyboardInterrupt:
+        logger.info('Someone pushed ^C')
+        raise
     except Exception, e:
         logger.error('Had a problem indexing %s: %s' % (repo, traceback.format_exc()))
     finally:
+        repo.indexing = False
+        repo.save()
         if not packfile and data_path:
             try:
                 os.unlink(data_path)
             except IOError, e:
                 logger.error('Could not remove tmpfile %s.: %s' % (data_path, e))
-        repo.indexing = False
-        repo.save()
         models.flush()
     logger.info('Done with %s' % repo)
 
