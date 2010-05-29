@@ -189,7 +189,7 @@ def _process_object(repo, obj, progress, type_mapper, iteration):
             _, child_id = obj.object
             child_type = type_mapper[child_id]
             child = _objectify(id=child_id, type=child_type)
-            child.add_tag(indexed_object)
+            child.add_tag(obj.id)
         else:
             # Nothing to do for these.
             assert obj.type_name == 'blob' or obj.type_name == 'commit'
