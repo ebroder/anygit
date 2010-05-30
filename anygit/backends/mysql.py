@@ -34,7 +34,6 @@ def init_model(connection):
             tablename = getattr(obj, '__tablename__')
             obj._object_store = Domain(db, tablename)
             collection_to_class[obj._object_store] = obj
-            print 'Setting type for %s to %s' % (obj, obj._object_store)
 
 def setup():
     """
