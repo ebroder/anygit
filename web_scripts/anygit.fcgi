@@ -9,9 +9,9 @@ import time
 DIR = os.path.abspath(os.path.dirname(__file__))
 conf = os.path.join(DIR, '../conf/anygit.ini')
 
-sys.path.insert(0, os.path.join(DIR, '..'))
+sys.path.append('/mit/anygit/Scripts/anygit')
 
-log = open(os.path.join(DIR, '../web.log'), 'a', 0)
+log = open('/mit/anygit/Scripts/anygit/web.log', 'a', 0)
 os.dup2(log.fileno(), 1)
 os.dup2(log.fileno(), 2)
 log.close()
