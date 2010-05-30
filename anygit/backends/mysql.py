@@ -146,7 +146,7 @@ class Query(object):
     def transform_outgoing(self, son):
         """Transform an object retrieved from the database"""
         if 'type' in son:
-            klass = classify(son['type'])
+            klass = common.classify(son['type'])
             return klass.demongofy(son)
         else:
             try:

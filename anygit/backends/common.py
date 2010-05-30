@@ -476,6 +476,14 @@ class GitObjectAssociation(Model, CommonMixin):
             key = cls.key1_name
         return cls._object_store.find({key : sha1})
 
+    @property
+    def key1(self):
+        return getattr(self, self.key1_name)
+
+    @property
+    def key2(self):
+        return getattr(self, self.key2_name)
+
     def __str__(self):
         return '%s: %s=%s, %s=%s' % (self.type,
                                      self.key1_name, getattr(self, self.key1_name),
@@ -769,12 +777,20 @@ class Tag(GitObject, CommonTagMixin):
     """Represents a git Tree.  Has an id (the sha1 that identifies this
     object)"""
     has_type = True
-    # object_id = make_persistent_attribute('object_id')
 
     def add_tag(self, tag_id):
         tag_id = canonicalize_to_id(tag_id)
         b = TagParentTag(key1=self.id, key2=tag_id)
         b.save()
+
+    @property
+    def object_id(self):
+        for tag_type in [CommitTag, TreeTag, TagParentTag, BlobTag]:
+            tag_association = tag_type.find({'tag_id' : self.id})
+            count = tag_association.count()
+            if count:
+                assert count == 1
+                return tag_association.next().key1
 
     @property
     def object(self):
