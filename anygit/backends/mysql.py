@@ -29,11 +29,12 @@ def init_model(connection):
     """Call me before using any of the tables or classes in the model."""
     db = connection
 
-    for obj in globals().itervalues():
-        if type(obj) == type and issubclass(obj, Model) and hasattr(obj, '__tablename__'):
+    for obj in common.__dict__.itervalues():
+        if type(obj) == type and issubclass(obj, common.Model) and hasattr(obj, '__tablename__'):
             tablename = getattr(obj, '__tablename__')
             obj._object_store = Domain(db, tablename)
             collection_to_class[obj._object_store] = obj
+            print 'Setting type for %s to %s' % (obj, obj._object_store)
 
 def setup():
     """
@@ -200,6 +201,7 @@ class Domain(object):
             delayed_statement = ' DELAYED'
         else:
             delayed_statement = ''
+
         query = 'INSERT%s IGNORE INTO `%s` (%s) VALUES (%s)' % (delayed_statement,
                                                                 self.name,
                                                                 ', '.join(keys),
@@ -225,71 +227,3 @@ class Domain(object):
         if not cursor:
             cursor = self.connection.cursor()
         return cursor.execute(query_string)
-
-
-class Model(object):
-    pass
-
-
-class GitObject(Model, common.GitObject):
-    pass
-
-
-class Blob(Model, common.Blob):
-    pass
-
-
-class Tree(Model, common.Tree):
-    pass
-
-
-class Tag(Model, common.Tag):
-    pass
-
-
-class Commit(Model, common.Commit):
-    pass
-
-
-class Repository(Model, common.Repository):
-    pass
-
-
-class BlobTag(Model, common.BlobTag):
-    pass
-
-
-class BlobTree(Model, common.BlobTree):
-    pass
-
-
-class TreeParentTree(Model, common.TreeParentTree):
-    pass
-
-
-class TreeCommit(Model, common.TreeCommit):
-    pass
-
-
-class TreeTag(Model, common.Tree):
-    pass
-
-
-class CommitParentCommit(Model, common.CommitParentCommit):
-    pass
-
-
-class CommitTree(Model, common.CommitTree):
-    pass
-
-
-class CommitTag(Model, common.CommitTag):
-    pass
-
-
-class TagParentTag(Model, common.TagParentTag):
-    pass
-
-
-class Aggregate(Model, common.Aggregate):
-    pass

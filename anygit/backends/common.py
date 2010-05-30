@@ -23,6 +23,9 @@ sha1_re = re.compile('^[a-f0-9]*')
 def sha1(string):
     return hashlib.sha1(string).hexdigest()
 
+def flush():
+    pass
+
 ## Internal functions
 
 def classify(string):
