@@ -79,7 +79,7 @@ pageTracker._trackPageview();
 </html>
 
 <%def name="header()">
-    Welcome to <a href="${url('/')}">anygit<sup>beta</sup></a>, indexing the world's git repositories.
+    Welcome to <a href="${url('/')}">anygit</a>, indexing the world's git repositories.
 </%def>
 
 <%def name="footer()">
