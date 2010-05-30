@@ -647,6 +647,11 @@ class GitObject(Model, CommonGitObjectMixin):
         raise AbstractMethodError()
 
     @property
+    def tag_ids(self):
+        cls = { Tag : TagParentTag, Blob : BlobTag, Commit : CommitTag, Tree : TreeTag }.get(self.__class__, BlobTag)
+        return Map(cls.get_all(self.id), (lambda t: t.tag_id) if (self.__class__ != Tag) else (lambda t: t.parent_tag_id))
+
+    @property
     def tags(self):
         return Tag.find_matching(self.tag_ids)
 

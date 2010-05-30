@@ -180,11 +180,26 @@ ${self.query_box(c.queried_id)}
     % endif
     </ul>
     </p>
+    
+    <p> It points to <tt>${self.link_to_object(object.object)}</tt> </p>
 
   % else:
     <% raise ValueError('Unrecognized type for %s' % object) %>
   % endif
-
+  
+  <% tags = object.tags %>
+  <p>
+  % if tags.count() == 0:
+    No tags point to this object.
+  % else:
+    The following ${h.pluralize(tags.count(), 'tag points', 'tags point', when='plural')} to this object:
+    <ul class="results">
+    % for tag in tags:
+      <li> <tt>${self.link_to_object(tag)}</tt> </li>
+    % endfor
+    </ul>
+  % endif
+  </p>
 % else:
 
 <p> You queried for git objects with prefix <tt>${c.queried_id}</tt>. </p>
