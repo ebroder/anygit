@@ -187,7 +187,7 @@ class Domain(object):
         values = []
         # TODO: escape
         if id is not None:
-            keys.append('`_id`')
+            keys.append('`id`')
             values.append(self._encode(id))
         for k, v in attributes.iteritems():
             keys.append('`%s`' % k)
