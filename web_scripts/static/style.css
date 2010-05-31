@@ -98,11 +98,11 @@ ul#error-messages, i {
 }
 
 .header a sup {
-	color: darkorange;
-	font: bold 10pt/10pt "Reenie Beanie";
-	position: absolute;
-	right: 1pt;
-	top: 18pt;
+    color: darkorange;
+    font: bold 10pt/10pt "Reenie Beanie";
+    position: absolute;
+    right: 1pt;
+    top: 18pt;
 }
 
 .footer {
