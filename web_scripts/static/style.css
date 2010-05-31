@@ -48,8 +48,13 @@ form {
     margin-bottom: 0.5em;
 }
 
-tt, input[type="text"] {
+tt, input[type="text"], textarea {
     font: normal 12pt/14pt Inconsolata, "Courier New", Courier, monospace;
+}
+
+textarea {
+    overflow-y: scroll;
+    overflow-x: hidden;
 }
 
 ul.results li {
@@ -156,4 +161,12 @@ ul#error-messages, i {
     position: absolute;
     right: 5%;
     top: 0.5em;
+}
+
+#expand {
+    float: right;
+}
+
+#submit {
+    vertical-align: top;
 }

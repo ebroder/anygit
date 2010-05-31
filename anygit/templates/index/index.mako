@@ -11,6 +11,29 @@
 
 <script type="text/javascript">
 	function setfocus(elt) { document.getElementById(elt).focus(); }
+	
+	function expand() {
+		urlbox = document.getElementById('url');
+		text = urlbox.value;
+		parent = urlbox.parentNode;
+		parent.removeChild(urlbox);
+		if(urlbox.nodeName.toLowerCase() == 'input') {
+			urlbox = document.createElement('textarea');
+			urlbox.setAttribute('cols', '20');
+			urlbox.setAttribute('rows', '5');
+			document.getElementById('expand').innerHTML = '&#9650;';
+		} else {
+			urlbox = document.createElement('input');
+			urlbox.setAttribute('type', 'text');
+			urlbox.setAttribute('size', '20');
+			document.getElementById('expand').innerHTML = '&#9660;';
+		}
+		urlbox.setAttribute('id', 'url');
+		urlbox.setAttribute('name', 'url');
+		urlbox.setAttribute('title', 'URL of the repository');
+		urlbox.value = text;
+		parent.insertBefore(urlbox, document.getElementById('submit').previousSibling);
+	}
 </script>
 
 <table><tr><td>
@@ -41,6 +64,7 @@
 	<div id="add">
 		<p>Would you like your repository to be added to the index? Enter the Git URL here.</p>
 		<%self:form url="${url_for(controller='index', action='do_request')}">
+		<a id="expand" onclick="expand();">▼</a>
 		${webhelpers.html.tags.text('url', title='URL of the repository')}
 		${webhelpers.html.tags.submit('submit', 'Index')}
 		</%self:form>

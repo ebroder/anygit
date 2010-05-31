@@ -18,47 +18,48 @@ class IndexController(BaseController):
         return render('about.mako', controller='index')
 
     def do_request(self):
-        url = models.Repository.canonicalize(request.params.get('url'))
-        if not url:
-            helpers.error('You did not provide a URL')
-            redirect_to('/')
-
-        if models.Repository.exists(url=url):
-            repo = models.Repository.get_by_attributes(url=url)
-            if repo.approved:
-                helpers.flash('Someone has already requested indexing of %s, '
-                              'so no worries' % url)
+        urls = request.params.get('url', '').strip()
+        if not urls:
+            helpers.error('You did not provide a URL.')
+        
+        for url in urls.split('\n'):
+            url = models.Repository.canonicalize(url.strip())
+            if not url:
+                continue
+            
+            if models.Repository.exists(url=url):
+                repo = models.Repository.get_by_attributes(url=url)
+                if repo.approved:
+                    helpers.flash('Someone has already requested indexing of %s, '
+                                  'so no worries.' % url)
+                else:
+                    if not url.startswith('git://'):
+                        helpers.flash("That repo (%s) has been already requested.  At the "
+                                      "moment, anygit only supports git protocol (git://) "
+                                      "repositories.  Once we've added support for this "
+                                      "repo's protocol, we'll index it." % url)
+                    elif not fetch.check_validity(repo):
+                        helpers.error("That's odd... someone already asked for %s, but it looks "
+                                      "to us like we can't talk to that repo.  Is there a typo "
+                                      "in there?  If not, please email anygit@mit.edu." % url)
+                    else:
+                        repo.approved = True
+                        repo.save()
+                        helpers.flash("Someone had requested %s before but it was down then. "
+                                      "Looks like it's back up now.  We'll get right to it." % url)
             else:
+                repo = models.Repository.create(url=url)
                 if not url.startswith('git://'):
-                    helpers.flash("That repo (%s) has been already requested.  At the "
-                                  "moment, anygit only supports git protocol (git://) "
-                                  "repositories.  Once we've added support for this "
-                                  "repo's protocol, we'll index it." % url)
+                    helpers.flash('Successfully requested %s for future indexing.  However, '
+                                  'please note that only git protocol (git://) '
+                                  'repositories are currently supported by anygit.' % url)
+                # Make sure we can talk to it
                 elif not fetch.check_validity(repo):
-                    helpers.error("That's odd... someone already asked for %s, but it looks "
-                                  "to us like we can't talk to that repo.  Is there a typo "
-                                  "in there?  If not, please email anygit@mit.edu" % url)
+                    helpers.error("Could not talk to %s; are you sure it's a valid URL?" % url)
                 else:
                     repo.approved = True
                     repo.save()
-                    models.flush()
-                    helpers.flash("Someone had requested %s before but it was down then. "
-                                  "Looks like it's back up now.  We'll get right to it."
-                                  % url)
-            redirect_to('/')
-
-        repo = models.Repository.create(url=url)
-
-        if not url.startswith('git://'):
-            helpers.flash('Successfully requested %s for future indexing.  However, '
-                          'please note that only git protocol (git://) '
-                          'repositories are currently supported by anygit.' % url)
-        # Make sure we can talk to it
-        elif not fetch.check_validity(repo):
-            helpers.error("Could not talk to %s; are you sure it's a valid URL?" % url)
-        else:
-            repo.approved = True
-            repo.save()
-            helpers.flash('Successfully requested %s for indexing' % url)
+                    helpers.flash('Successfully requested %s for indexing.' % url)
+        
         models.flush()
         redirect_to('/')

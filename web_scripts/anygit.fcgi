@@ -9,7 +9,7 @@ import time
 DIR = os.path.abspath(os.path.dirname(__file__))
 conf = os.path.join(DIR, '..', 'conf', 'anygit.ini')
 
-sys.path.append(os.path.join(DIR, '..'))
+sys.path.insert(0, os.path.join(DIR, '..'))
 
 log = open(os.path.join(DIR, '..', 'web.log'), 'a', 0)
 os.dup2(log.fileno(), 1)

@@ -137,10 +137,6 @@ def pluralize(number, singular, plural=None, when='always'):
         else:
             return plural
 
-def liststyled(items, separator, style_left=None, style_right=None):
-    if style_left is None:
-        style_left=""
-    if style_right is None:
-        style_right=""
-    styled_objects = map((lambda x: style_left + x + style_right), items)
+def liststyled(items, separator, style_left='', style_right=''):
+    styled_objects = [ (style_left + x + style_right) for x in items ]
     return separator.join(styled_objects)
