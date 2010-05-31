@@ -22,8 +22,9 @@ sha1_re = re.compile('^[a-f0-9]*')
 def create_schema():
     print 'Huhh??'
 
-def flush():
-    pass
+def _flush(klass, instances):
+    klass._object_store.insert_all(instance.get_updates() for instance in instances)
+common._register_flush(_flush)
 
 def init_model(connection):
     """Call me before using any of the tables or classes in the model."""
@@ -206,6 +207,28 @@ class Domain(object):
                                                                 ', '.join(keys),
                                                                 ', '.join(values))
         self._execute(query)
+
+    def insert_all(self, attributes_list, delayed=True):
+        if not attributes_list:
+            logger.error('Asked me to save nothing...')
+            return
+        if delayed:
+            delayed_statement = ' DELAYED'
+        else:
+            delayed_statement = ''
+        args = []
+        for attributes in attributes_list:
+            keys, values = self._prepare_params(None, attributes)
+            assert keys
+            assert values
+            args.append(' (%s)' % ', '.join(values))
+        query = 'INSERT%s IGNORE INTO `%s` (%s) VALUES %s' % (delayed_statement,
+                                                              self.name,
+                                                              ', '.join(keys),
+                                                              ', '.join(args))
+        logger.info('Massive insert: %s' % query)
+        self._execute(query)
+        
 
     def update(self, id, attributes):
         keys, values = self._prepare_params(None, attributes)

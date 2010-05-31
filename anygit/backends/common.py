@@ -18,15 +18,30 @@ collection_to_class = {}
 
 sha1_re = re.compile('^[a-f0-9]*')
 
+pending_saves = 0
+max_pending_saves = 1000
+
 ## Exported functions
 
 def sha1(string):
     return hashlib.sha1(string).hexdigest()
 
 def flush():
-    pass
+    # Should replace this
+    raise NotImplementedError
 
 ## Internal functions
+
+def _register_flush(fn):
+    global pending_saves, flush
+    def flush():
+        global pending_saves
+        for klass, instances in Model._needed_saves.iteritems():
+            fn(klass, instances)
+            for instance in instances:
+                instance.mark_saved()
+        Model._needed_saves.clear()
+        pending_saves = 0
 
 def classify(string):
     """Convert a class name to the corresponding class"""
@@ -304,6 +319,7 @@ class Model(object):
     cache = {}
     mutable = False
     has_type = False
+    _needed_saves = {}
 
     def __init__(self, _raw_dict={}, **kwargs):
         self._pending_updates = {}
@@ -391,27 +407,37 @@ class Model(object):
         return self.new or self._changed or self._pending_updates
 
     def save(self):
-        global curr_transaction_window
+        global pending_saves
         self.validate()
         if not self._errors:
             if not (self.changed or self.new):
                 return True
             else:
                 try:
-                    updates = self.get_updates()
                     if not self.new:
+                        updates = self.get_updates()
                         self._object_store.update(self.id,
                                                   updates)
                     elif self.mutable:
+                        updates = self.get_updates()
                         self._object_store.insert(updates, delayed=False)
                         self._object_store.update(self.id,
                                                   updates)
                     else:
-                        self._object_store.insert(updates)
+                        if self._pending_save:
+                            return True
+                        else:
+                            pending_saves += 1
+                            self._pending_save = True
+                            self._needed_saves.setdefault(type(self), []).append(self)
+                            if max_pending_saves is not None and pending_saves >= max_pending_saves:
+                                flush()
                 except:
                     logger.critical('Had some trouble saving %s' % self)
                     raise
-                self.mark_saved()
+                else:
+                    if not self._pending_save:
+                        self.mark_saved()
             return True
         else:
             return False

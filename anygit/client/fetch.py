@@ -206,7 +206,6 @@ def _process_data(repo, uncompressed_pack, progress):
                         iteration=1)
     logger.info('Constructed object type map of size %s (%d bytes) for %s' %
                 (len(type_mapper), type_mapper.__sizeof__(), repo))
-    models.flush()
 
     logger.info('Now processing objects for %s' % repo)
     for obj in uncompressed_pack.iterobjects():

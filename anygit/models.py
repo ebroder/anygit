@@ -6,10 +6,10 @@ from anygit.backends import common
 # Top level names to import
 __BACKEND_VARS = ['create_schema',
                   'setup',
-                  'flush',
                   'destroy_session']
 
-__COMMON_VARS = ['GitObject',
+__COMMON_VARS = ['flush',
+                 'GitObject',
                 'Blob',
                 'Tree',
                 'Tag',
